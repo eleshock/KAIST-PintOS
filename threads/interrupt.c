@@ -26,6 +26,7 @@
    to call into the gate and DPL==0 prevents such calls.  Faults
    and exceptions that occur in user mode still cause gates with
    DPL==0 to be invoked.
+   (DPL : Descriptor Privilege Level)
 
    TYPE must be either 14 (for an interrupt gate) or 15 (for a
    trap gate).  The difference is that entering an interrupt gate
