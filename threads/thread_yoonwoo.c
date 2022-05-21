@@ -15,6 +15,14 @@
 #include "userprog/process.h"
 #endif
 
+
+
+/*여기는 내가 보기 편하라고 선언해놓은 것들. 다른 파일에선 없어도 됨*/
+static struct list sleep_list;
+
+
+
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -299,14 +307,15 @@ thread_yield (void) {
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
-	ASSERT (!intr_context ());
+	ASSERT (!intr_context ()); // intr가 외부에서 일어나 이 함수가 실행된 상황엔 중지
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_push_back (&ready_list, &curr->elem); // ready_list의 tail 앞에 현재 스레드를 삽입
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
+
 
 
 /* 윤우 구현 */
@@ -334,6 +343,15 @@ thread_sleep (int64_t awake_ticks) {
 
 	intr_set_level (old_level); // interrupt 활성화
 }
+
+
+
+
+
+
+
+
+
 
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
