@@ -122,10 +122,14 @@ timer_print_stats (void) {
 }
 
 /* Timer interrupt handler. */
+/*** hyeRexx ***/
+int64_t next_tick_to_awake; //temp. delete. 
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
-	ticks++; 
-	thread_tick ();
+    ticks++;
+    if(ticks >= get_next_tick_to_awake()) { /*** 함수 확인 필요 ***/
+        thread_awake(ticks);
+    }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
