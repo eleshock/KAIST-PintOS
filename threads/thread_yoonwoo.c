@@ -334,7 +334,10 @@ thread_sleep (int64_t awake_ticks) {
 	list_push_back(&sleep_list, &curr->elem); // 현재 thread를 sleep_list의 끝에 추가
 	
 	curr->wakeup_tick = awake_ticks; // 깨울 시간 저장
-	update_next_tick_to_awake(awake_ticks); // 최소 시간 업데이트
+
+	if (next_tick_to_awake > awake_ticks){
+		update_next_tick_to_awake(awake_ticks); // 최소 시간 업데이트
+	}
 
 	thread_block(); // 현재 thread block으로 바꾸고 schedule 진행
 
