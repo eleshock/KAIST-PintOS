@@ -11,6 +11,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "list.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -62,6 +63,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
+static void thread_awake(int64_t ticks); /*** hyeRexx ***/
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -115,6 +117,23 @@ thread_init (void) {
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
+}
+
+/*** hyeRexx ***/
+void thread_awake(int64_t ticks) {
+    struct list_elem *curr;
+    struct thread *curr_thread;
+
+    for(curr = list_begin(&sleep_list); curr != list_tail(&sleep_list); curr = list_next(&curr)) {
+        curr_thread = list_entry(curr, struct thread, elem);
+        if(curr_thread->wakeup_tick >= ticks) {
+            intr_disable(); // 인터럽트 끄기
+            curr_thread->status = THREAD_READY; // 참조중인 스레드 상태 변경 (READY)
+            list_remove(&(curr)); // 참조중인 스레드를 포함된 리스트에서 제거
+            list_push_back(&ready_list, &(curr)); // 참조중인 스레드를 ready_list에 push
+            intr_enable(); // 인터럽트 켜기
+        }
+    }
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
