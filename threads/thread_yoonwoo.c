@@ -307,14 +307,46 @@ thread_yield (void) {
 	struct thread *curr = thread_current ();
 	enum intr_level old_level;
 
-	ASSERT (!intr_context ());
+	ASSERT (!intr_context ()); // intr가 외부에서 일어나 이 함수가 실행된 상황엔 중지
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_push_back (&ready_list, &curr->elem); // ready_list의 tail 앞에 현재 스레드를 삽입
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
+
+
+
+/* 윤우 구현 */
+/* 현재 스레드 재우기 
+ * input - awake_ticks : 깨울 시간 */
+void
+thread_sleep (int64_t awake_ticks) {
+	enum intr_level old_level;
+	struct thread *curr = thread_current(); // 현재 run 상태인 thread 받아 오기
+	
+	ASSERT(curr != idle_thread); // 재워질 스레드는 idle_thread가 아니어야 한다?
+
+	old_level = intr_disable (); // interrupt 못들어오게 막아주기
+
+	list_remove(&curr->elem); // ready_list에서 빼주기
+	list_push_back(&sleep_list, &curr->elem); // 현재 thread를 sleep_list의 끝에 추가
+	
+	curr->wakeup_tick = awake_ticks; // 깨울 시간 저장
+	update_next_tick_to_awake(awake_ticks); // 최소 시간 업데이트
+
+	thread_block(); // 현재 thread block으로 바꾸고 schedule 진행
+
+	intr_set_level (old_level); // interrupt 활성화
+}
+
+
+
+
+
+
+
 
 
 
