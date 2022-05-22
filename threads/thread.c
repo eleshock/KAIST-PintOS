@@ -114,7 +114,7 @@ void thread_init(void)
 	/* Init the globla thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
-    list_init(&sleep_list); /*** Jack ***/
+	list_init(&sleep_list); /*** Jack ***/
 	list_init(&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -130,34 +130,27 @@ void thread_awake(int64_t ticks)
 	struct list_elem *curr;
 	struct list_elem *temp;
 	struct thread *curr_thread;
-    int64_t min_ticks = INT64_MAX;
+	int64_t min_ticks = INT64_MAX;
 
-    intr_disable(); // 인터럽트 끄기
-
-	for (curr = list_begin(&sleep_list); curr != list_tail(&sleep_list); curr = list_next(&curr))
+	for (curr = list_begin(&sleep_list); curr != list_tail(&sleep_list); curr = list_next(curr))
 	{
 		curr_thread = list_entry(curr, struct thread, elem);
 		if (curr_thread->wakeup_tick <= ticks)
 		{
-			curr_thread->status = THREAD_READY;	  // 참조중인 스레드 상태 변경 (READY)
-            ASSERT(curr != NULL);
-            // ASSERT(list_next(&curr) != list_head(&sleep_list));
-			temp = list_remove(&(curr));		  // 참조중인 스레드를 포함된 리스트에서 제거, temp = curr->next(sleep_list)
-			list_push_back(&ready_list, &(curr)); // 참조중인 스레드를 ready_list에 push
-            curr = list_prev(&temp);              // curr = temp->prev
-            // curr = temp;
+			curr_thread->status = THREAD_READY; // 참조중인 스레드 상태 변경 (READY)
+			temp = list_remove(curr);			// 참조중인 스레드를 포함된 리스트에서 제거, temp = curr->next(sleep_list)
+			list_push_back(&ready_list, curr);	// 참조중인 스레드를 ready_list에 push
+			curr = list_prev(temp);				// curr = temp->prev
 		}
-        else    // min_ticks update
-        {
-            if((curr_thread->wakeup_tick) <= min_ticks) 
-            {
-                min_ticks = curr_thread->wakeup_tick;   
-            } 
-        }
+		else // min_ticks update
+		{
+			if ((curr_thread->wakeup_tick) <= min_ticks)
+			{
+				min_ticks = curr_thread->wakeup_tick;
+			}
+		}
 	}
-
-    intr_enable();  // 인터럽트 켜기
-    update_next_tick_to_awake(min_ticks);
+	update_next_tick_to_awake(min_ticks);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
