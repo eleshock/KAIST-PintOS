@@ -346,7 +346,7 @@ void thread_yield(void)
 	intr_set_level(old_level);
 }
 
-/* 윤우 구현 */
+/*** GrilledSalmon ***/
 /* 현재 스레드 재우기
  * input - awake_ticks : 깨울 시간 */
 void thread_sleep(int64_t awake_ticks)
@@ -374,10 +374,30 @@ void thread_sleep(int64_t awake_ticks)
 	intr_set_level(old_level); // interrupt 활성화
 }
 
+/*** GrilledSalmon ***/
+/* 현재 실행중인 thread의 우선순위가 ready_list의 최우선순위 thread보다 높은지 확인하고
+ * 자신이 더 낮다면 yield */
+void test_max_priority(void)
+{
+	ASSERT(list_begin(&ready_list)->next != NULL); // ready_list가 비어 있지 않아야 한다.
+
+	struct thread *curr = thread_current();
+	struct thread *first_thread = list_entry(list_begin(&ready_list), struct thread, elem); // ready_list에서 우선순위가 가장 높은 thread
+	
+	if (curr->priority < first_thread->priority)   // 현재 thread의 우선순위가 더 낮다면
+	{
+		thread_yield(); 						   // 양보!
+	}
+}
+
+/*** GrilledSalmon ***/
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
-{
+{	
+	ASSERT((PRI_MIN <= new_priority) && (new_priority <= PRI_MAX) ); // 갱신해줄 우선순위가 범위 안에 있는지 확인
+
 	thread_current()->priority = new_priority;
+	test_max_priority(); 			// 우선순위가 갱신됐으니, 현재 thread가 가장 높은 우선순위인지 확인
 }
 
 /* Returns the current thread's priority. */
