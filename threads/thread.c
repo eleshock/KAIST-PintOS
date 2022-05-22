@@ -151,6 +151,7 @@ void thread_awake(int64_t ticks)
 		}
 	}
 	update_next_tick_to_awake(min_ticks);
+	return;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -357,7 +358,8 @@ void thread_sleep(int64_t awake_ticks)
 
 	old_level = intr_disable(); // interrupt 못들어오게 막아주기
 
-	list_remove(&curr->elem);				  // ready_list에서 빼주기
+	// ready_list에서 빼주기. <- 이미 실행된 쓰레드는 readylist에 없어서 추출 불필요함
+	// list_remove(&curr->elem);
 	list_push_back(&sleep_list, &curr->elem); // 현재 thread를 sleep_list의 끝에 추가
 
 	curr->wakeup_tick = awake_ticks; // 깨울 시간 저장
