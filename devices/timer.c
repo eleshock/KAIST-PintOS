@@ -93,6 +93,11 @@ timer_elapsed(int64_t then)
 /* Suspends execution for approximately TICKS timer ticks. */
 void timer_sleep(int64_t ticks)
 {
+    if(ticks <= 0) 
+    {
+        return;
+    }
+
 	int64_t start = timer_ticks();
 
 	ASSERT(intr_get_level() == INTR_ON);
@@ -125,7 +130,6 @@ void timer_print_stats(void)
 
 /* Timer interrupt handler. */
 /*** hyeRexx ***/
-int64_t next_tick_to_awake; // temp. delete.
 static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {

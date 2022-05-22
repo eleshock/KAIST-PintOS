@@ -54,10 +54,8 @@ static long long user_ticks;   /* # of timer ticks in user programs. */
 #define TIME_SLICE 4		  /* # of timer ticks to give each thread. */
 static unsigned thread_ticks; /* # of timer ticks since last yield. */
 
-/* static variables and fuctions for sleeping and awakening */
-static int64_t next_tick_to_awake = INT64_MAX;
-void update_next_tic_to_awake(int64_t ticks);
-int64_t get_next_tick_to_awake(void);
+/*** Jack ***/
+int64_t next_tick_to_awake = INT64_MAX;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -72,7 +70,6 @@ static void init_thread(struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
-static void thread_awake(int64_t ticks); /*** hyeRexx ***/
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -117,6 +114,7 @@ void thread_init(void)
 	/* Init the globla thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
+    list_init(&sleep_list); /*** Jack ***/
 	list_init(&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -134,17 +132,20 @@ void thread_awake(int64_t ticks)
 	struct thread *curr_thread;
     int64_t min_ticks = INT64_MAX;
 
+    intr_disable(); // 인터럽트 끄기
+
 	for (curr = list_begin(&sleep_list); curr != list_tail(&sleep_list); curr = list_next(&curr))
 	{
 		curr_thread = list_entry(curr, struct thread, elem);
 		if (curr_thread->wakeup_tick <= ticks)
 		{
-			intr_disable();						  // 인터럽트 끄기
 			curr_thread->status = THREAD_READY;	  // 참조중인 스레드 상태 변경 (READY)
+            ASSERT(curr != NULL);
+            // ASSERT(list_next(&curr) != list_head(&sleep_list));
 			temp = list_remove(&(curr));		  // 참조중인 스레드를 포함된 리스트에서 제거, temp = curr->next(sleep_list)
 			list_push_back(&ready_list, &(curr)); // 참조중인 스레드를 ready_list에 push
             curr = list_prev(&temp);              // curr = temp->prev
-			intr_enable();						  // 인터럽트 켜기
+            // curr = temp;
 		}
         else    // min_ticks update
         {
@@ -154,6 +155,8 @@ void thread_awake(int64_t ticks)
             } 
         }
 	}
+
+    intr_enable();  // 인터럽트 켜기
     update_next_tick_to_awake(min_ticks);
 }
 

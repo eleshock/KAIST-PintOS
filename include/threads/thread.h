@@ -132,9 +132,14 @@ struct thread *thread_current(void);
 tid_t thread_tid(void);
 const char *thread_name(void);
 
+/* static variables and fuctions for sleeping and awakening */ /*** Jack ***/
+void update_next_tick_to_awake(int64_t ticks);
+int64_t get_next_tick_to_awake(void);
+
 void thread_exit(void) NO_RETURN;
 void thread_yield(void);
 void thread_sleep(int64_t awake_ticks); // 윤우 추가
+void thread_awake(int64_t ticks); /*** hyeRexx ***/
 
 int thread_get_priority(void);
 void thread_set_priority(int);
