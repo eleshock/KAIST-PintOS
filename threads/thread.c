@@ -130,20 +130,31 @@ void thread_init(void)
 void thread_awake(int64_t ticks)
 {
 	struct list_elem *curr;
+	struct list_elem *temp;
 	struct thread *curr_thread;
+    int64_t min_ticks = INT64_MAX;
 
 	for (curr = list_begin(&sleep_list); curr != list_tail(&sleep_list); curr = list_next(&curr))
 	{
 		curr_thread = list_entry(curr, struct thread, elem);
-		if (curr_thread->wakeup_tick >= ticks)
+		if (curr_thread->wakeup_tick <= ticks)
 		{
 			intr_disable();						  // 인터럽트 끄기
 			curr_thread->status = THREAD_READY;	  // 참조중인 스레드 상태 변경 (READY)
-			list_remove(&(curr));				  // 참조중인 스레드를 포함된 리스트에서 제거
+			temp = list_remove(&(curr));		  // 참조중인 스레드를 포함된 리스트에서 제거, temp = curr->next(sleep_list)
 			list_push_back(&ready_list, &(curr)); // 참조중인 스레드를 ready_list에 push
+            curr = list_prev(&temp);              // curr = temp->prev
 			intr_enable();						  // 인터럽트 켜기
 		}
+        else    // min_ticks update
+        {
+            if((curr_thread->wakeup_tick) <= min_ticks) 
+            {
+                min_ticks = curr_thread->wakeup_tick;   
+            } 
+        }
 	}
+    update_next_tick_to_awake(min_ticks);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -205,8 +216,7 @@ void thread_print_stats(void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t thread_create(const char *name, int priority,
-					thread_func *function, void *aux)
+tid_t thread_create(const char *name, int priority, thread_func *function, void *aux)
 {
 	struct thread *t;
 	tid_t tid;

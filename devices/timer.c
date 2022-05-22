@@ -131,7 +131,7 @@ timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
 	if (ticks >= get_next_tick_to_awake())
-	{ /*** 함수 확인 필요 ***/
+	{ 
 		thread_awake(ticks);
 	}
 }
