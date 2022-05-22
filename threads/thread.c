@@ -683,3 +683,14 @@ int64_t get_next_tick_to_awake(void)
 {
 	return next_tick_to_awake;
 }
+
+/*** JACK ***/
+/*  */
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	ASSERT(a != NULL);
+	ASSERT(b != NULL);
+	struct thread *thread_a = list_entry(a, struct thread, elem);
+	struct thread *thread_b = list_entry(b, struct thread, elem);
+	return thread_a->priority > thread_b->priority ? 1 : 0;
+}
