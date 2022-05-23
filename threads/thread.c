@@ -394,7 +394,10 @@ void thread_sleep(int64_t awake_ticks)
  * 자신이 더 낮다면 yield */
 void test_max_priority(void)
 {
-	ASSERT(list_begin(&ready_list)->next != NULL); // ready_list가 비어 있지 않아야 한다.
+	
+	if (list_empty(&ready_list)) { // ready_list가 비어있을 땐 그냥 리턴
+		return;
+	}
 
 	struct thread *curr = thread_current();
 	struct thread *first_thread = list_entry(list_begin(&ready_list), struct thread, elem); // ready_list에서 우선순위가 가장 높은 thread
