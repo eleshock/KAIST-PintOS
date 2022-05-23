@@ -282,18 +282,18 @@ cond_init (struct condition *cond) {
    we need to sleep. */
 void
 cond_wait (struct condition *cond, struct lock *lock) {
-   struct semaphore_elem waiter;
+	struct semaphore_elem waiter;
 
-   ASSERT (cond != NULL);
-   ASSERT (lock != NULL);
-   ASSERT (!intr_context ());
-   ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (cond != NULL);
+	ASSERT (lock != NULL);
+	ASSERT (!intr_context ());
+	ASSERT (lock_held_by_current_thread (lock));
 
-   sema_init (&waiter.semaphore, 0);
-   list_push_back (&cond->waiters, &waiter.elem);
-   lock_release (lock);
-   sema_down (&waiter.semaphore);
-   lock_acquire (lock);
+	sema_init (&waiter.semaphore, 0);
+	list_insert_ordered (&cond->waiters, &waiter.elem, cmp_sem_priority, NULL); // JACK
+	lock_release (lock);
+	sema_down (&waiter.semaphore);
+	lock_acquire (lock);
 }
 
 /* If any threads are waiting on COND (protected by LOCK), then
@@ -305,14 +305,17 @@ cond_wait (struct condition *cond, struct lock *lock) {
    interrupt handler. */
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) {
-   ASSERT (cond != NULL);
-   ASSERT (lock != NULL);
-   ASSERT (!intr_context ());
-   ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (cond != NULL);
+	ASSERT (lock != NULL);
+	ASSERT (!intr_context ());
+	ASSERT (lock_held_by_current_thread (lock));
 
-   if (!list_empty (&cond->waiters))
-      sema_up (&list_entry (list_pop_front (&cond->waiters),
-               struct semaphore_elem, elem)->semaphore);
+	if (!list_empty (&cond->waiters))
+	{
+		list_sort(&cond->waiters, cmp_sem_priority, NULL); // JACK
+		sema_up (&list_entry (list_pop_front (&cond->waiters),
+					struct semaphore_elem, elem)->semaphore);
+	}
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
