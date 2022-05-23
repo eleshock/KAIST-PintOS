@@ -152,3 +152,6 @@ int thread_get_load_avg(void);
 void do_iret(struct intr_frame *tf);
 
 #endif /* threads/thread.h */
+
+/*** JACK ***/
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
