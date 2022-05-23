@@ -341,7 +341,7 @@ void thread_yield(void)
 
 	old_level = intr_disable();
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL); // JACK
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
@@ -702,4 +702,15 @@ void update_next_tick_to_awake(int64_t ticks)
 int64_t get_next_tick_to_awake(void)
 {
 	return next_tick_to_awake;
+}
+
+/*** JACK ***/
+/*  */
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	ASSERT(a != NULL);
+	ASSERT(b != NULL);
+	struct thread *thread_a = list_entry(a, struct thread, elem);
+	struct thread *thread_b = list_entry(b, struct thread, elem);
+	return thread_a->priority > thread_b->priority;
 }
