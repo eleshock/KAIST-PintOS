@@ -346,7 +346,6 @@ bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void
 	struct semaphore *sema_a = &(list_entry(a, struct semaphore_elem, elem)->semaphore);
 	struct semaphore *sema_b = &(list_entry(b, struct semaphore_elem, elem)->semaphore);
 
-	ASSERT(!list_empty(&sema_a->waiters));
 	ASSERT(!list_empty(&sema_b->waiters));
 	
 	return cmp_priority(list_begin(&sema_a->waiters), list_begin(&sema_b->waiters), NULL);
