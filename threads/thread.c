@@ -111,7 +111,7 @@ void thread_init(void)
 		.address = (uint64_t)gdt};
 	lgdt(&gdt_ds);
 
-	/* Init the globla thread context */
+	/* Init the global thread context */
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&sleep_list); /*** Jack ***/
@@ -174,7 +174,7 @@ void thread_start(void)
    Thus, this function runs in an external interrupt context. */
 void thread_tick(void)
 {
-	struct thread *t = thread_current();
+	struct thread *t = thread_current(); // thread
 
 	/* Update statistics. */
 	if (t == idle_thread)
@@ -213,6 +213,8 @@ void thread_print_stats(void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
+
+/*** hyeRexx ***/
 tid_t thread_create(const char *name, int priority, thread_func *function, void *aux)
 {
 	struct thread *t;
@@ -223,14 +225,19 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 	/* Allocate thread. */
 	t = palloc_get_page(PAL_ZERO);
 	if (t == NULL)
-		return TID_ERROR;
+		return TID_ERROR; // 할당 실패
 
 	/* Initialize thread. */
-	init_thread(t, name, priority);
+	init_thread(t, name, priority); // 들어온 priority로 초기화
 	tid = t->tid = allocate_tid();
 
 	/* Call the kernel_thread if it scheduled.
-	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
+	 * Note) rdi is 1st argument, and rsi is 2nd argument.
+
+     *** hyeRexx ***
+     * RSI(Extended Source Index) / RDI(Extended Destination Index)
+     * 각 메모리 출발지와 목적지를 나타냄. 고속 메모리 전송 명령어에서 사용
+     * 이 부분은 인터럽트 초기화인듯..? */
 	t->tf.rip = (uintptr_t)kernel_thread;
 	t->tf.R.rdi = (uint64_t)function;
 	t->tf.R.rsi = (uint64_t)aux;
@@ -240,8 +247,13 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	/* Add to run queue. */
+    /* Add to run queue. */
 	thread_unblock(t);
+
+    /*** hyeRexx ***/
+    ASSERT(t->status == THREAD_READY); // 언블락 잘 되었는지 확인
+    /* 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기 */
+    test_max_priority();
 
 	return tid;
 }
@@ -276,7 +288,10 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+    
+    /*** hyeRexx ***/
+    // pushback >>>> insertOredered로 수정, cmp_priority 전달 확인 필요
+    list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 }
@@ -294,7 +309,7 @@ thread_name(void)
 struct thread *
 thread_current(void)
 {
-	struct thread *t = running_thread();
+	struct thread *t = running_thread(); // 
 
 	/* Make sure T is really a thread.
 	   If either of these assertions fire, then your thread may
