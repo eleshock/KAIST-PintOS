@@ -139,7 +139,8 @@ void thread_awake(int64_t ticks)
 		{
 			curr_thread->status = THREAD_READY; // 참조중인 스레드 상태 변경 (READY)
 			temp = list_remove(curr);			// 참조중인 스레드를 포함된 리스트에서 제거, temp = curr->next(sleep_list)
-			list_push_back(&ready_list, curr);	// 참조중인 스레드를 ready_list에 push
+			list_insert_ordered(&ready_list, curr, cmp_priority, NULL);	// 참조중인 스레드를 ready_list에 push
+			// list_push_back(&ready_list, curr);	// 참조중인 스레드를 ready_list에 push
 			curr = list_prev(temp);				// curr = temp->prev
 		}
 		else // min_ticks update
