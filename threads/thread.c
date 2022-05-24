@@ -8,7 +8,7 @@
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
-#include "threads/synch.h"
+// #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "list.h"
@@ -504,6 +504,7 @@ kernel_thread(thread_func *function, void *aux)
 	thread_exit(); /* If function() returns, kill the thread. */
 }
 
+/*** GrilledSalmon ***/
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
@@ -518,7 +519,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
+	t->original_priority = priority;	/*** GrilledSalmon ***/
 	t->magic = THREAD_MAGIC;
+	t->wait_on_lock = NULL;				/*** GrilledSalmon ***/
+	list_init(&t->donator_list);			/*** GrilledSalmon ***/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
