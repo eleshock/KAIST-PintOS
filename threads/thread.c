@@ -749,7 +749,8 @@ void refresh_priority(void) {
 
     if(!list_empty(&curr->donator_list)) // empty로 수정
     {   // 대기열 중 맨 앞 thread의 priority 추출 : donator_list
-        struct thread *best = list_entry(list_pop_front(&curr->donator_list), struct thread, d_elem);
+        struct thread *best = list_entry(list_begin(&curr->donator_list), struct thread, d_elem);
+        ASSERT(best != NULL); // added
         curr->priority = best->priority;      
     }
     return;
