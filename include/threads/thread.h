@@ -143,6 +143,7 @@ void thread_awake(int64_t ticks); /*** hyeRexx ***/
 
 int thread_get_priority(void);
 void thread_set_priority(int);
+void refresh_priority(void);
 
 int thread_get_nice(void);
 void thread_set_nice(int);

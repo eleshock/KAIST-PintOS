@@ -230,7 +230,12 @@ lock_release (struct lock *lock) {
    ASSERT (lock != NULL);
    ASSERT (lock_held_by_current_thread (lock));
 
+   /*** hyeRexx ***/
+   refresh_donator_list(lock); // holder 해제하기 전 call refresh
+
    lock->holder = NULL;
+   refresh_priority(); // 우선순위 원복 또는 교체 처리
+   
    sema_up (&lock->semaphore);
 }
 
