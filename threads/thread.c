@@ -731,7 +731,6 @@ int64_t get_next_tick_to_awake(void)
 }
 
 /*** JACK ***/
-/*  */
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
 	ASSERT(a != NULL);
@@ -739,6 +738,21 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 	struct thread *thread_a = list_entry(a, struct thread, elem);
 	struct thread *thread_b = list_entry(b, struct thread, elem);
 	return thread_a->priority > thread_b->priority;
+}
+
+/*** hyeRexx ***/
+void refresh_priority(void) {
+    struct thread *curr = thread_current(); // check curr thread
+    ASSERT(curr != NULL); 
+
+    curr->priority = curr->original_priority; // 우선 원복
+
+    if(!list_empty(curr->donator_list)) // empty로 수정
+    {   // 대기열 중 맨 앞 thread의 priority 추출 : donator_list
+        struct thread *best = list_entry(list_pop_front(&curr->donator_list), struct thread, d_elem);
+        curr->priority = best->priority;      
+    }
+    return;
 }
 
 /*** Jack ***/
@@ -763,7 +777,6 @@ void donate_priority(void)
 		ASSERT(curr_holder->wait_on_lock->holder != NULL);
     	curr_holder = curr_holder->wait_on_lock->holder;
     }
-
    list_sort(&ready_list, cmp_priority, NULL); // donation으로 인한 ready_list 우선순위 변동으로 sort 필요
 }
 
