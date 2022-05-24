@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h" /*** GrilledSalmon ***/
 #include "threads/interrupt.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -85,17 +86,23 @@ typedef int tid_t;
  * only because they are mutually exclusive: only a thread in the
  * ready state is on the run queue, whereas only a thread in the
  * blocked state is on a semaphore wait list. */
-struct thread
+struct thread 
 {
 	/* Owned by thread.c. */
 	tid_t tid;				   /* Thread identifier. */
 	enum thread_status status; /* Thread state. */
 	char name[16];			   /* Name (for debugging purposes). */
+	int original_priority;	   /* Original priority before receive donation. */ /*** GrilledSalmon ***/
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   /* tick to wake up */
+	struct lock *wait_on_lock; /* thread가 기다리고 있는 lock의 포인터 */ /*** GrilledSalmon ***/
 
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem; /* List element. */
+	struct list_elem elem;		/* List element. */
+
+	/*** GrilledSalmon ***/
+	struct list donator_list; 	/* priority donator가 저장되는 리스트 */
+	struct list_elem d_elem; 	/* List element. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
