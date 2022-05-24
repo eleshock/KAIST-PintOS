@@ -747,7 +747,7 @@ void refresh_priority(void) {
 
     curr->priority = curr->original_priority; // 우선 원복
 
-    if(!list_empty(curr->donator_list)) // empty로 수정
+    if(!list_empty(&curr->donator_list)) // empty로 수정
     {   // 대기열 중 맨 앞 thread의 priority 추출 : donator_list
         struct thread *best = list_entry(list_pop_front(&curr->donator_list), struct thread, d_elem);
         curr->priority = best->priority;      
@@ -786,7 +786,7 @@ void refresh_donator_list(struct lock *lock)
 {
     ASSERT(lock != NULL); // 입력 확인
 
-	struct list* curr_dona_li = thread_current()->donator_list;
+	struct list *curr_dona_li = &(thread_current()->donator_list);
 	struct list_elem *curr_d_elem; // 순회용
 	struct list_elem *temp; // 리스트에서 제거시 순회용 elem 수정위해 임시 저장
 
