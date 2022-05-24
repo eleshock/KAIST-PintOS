@@ -415,7 +415,10 @@ void thread_set_priority(int new_priority)
 {	
 	ASSERT((PRI_MIN <= new_priority) && (new_priority <= PRI_MAX) ); // 갱신해줄 우선순위가 범위 안에 있는지 확인
 
-	thread_current()->priority = new_priority;
+	// thread_current()->priority = new_priority; // Jack _ original만 갱신하기 위해 삭제
+	thread_current()->original_priority = new_priority; // Jack _ original만 갱신한 뒤
+	refresh_priority(); // Jack _ donation 여부 확인하여 priority 갱신함
+
 	test_max_priority(); 			// 우선순위가 갱신됐으니, 현재 thread가 가장 높은 우선순위인지 확인
 }
 
@@ -732,4 +735,28 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 	struct thread *thread_a = list_entry(a, struct thread, elem);
 	struct thread *thread_b = list_entry(b, struct thread, elem);
 	return thread_a->priority > thread_b->priority;
+}
+
+/*** Jack ***/
+/*** Lock Acquire 요청하였으나 다른 쓰레드가 홀드하고 있는 경우
+ * 해당 holder부터 시작해서 순회하면서 priority를 기부해줌 ***/
+void donate_priority(void)
+{
+    ASSERT(thread_current()->wait_on_lock);
+    ASSERT(thread_current()->wait_on_lock->holder);
+
+    struct thread *curr_thread = thread_current();
+    struct thread *curr_holder = curr_thread->wait_on_lock->holder;
+   
+    for (int i=0; i < 8; i++)
+    {
+    	curr_holder->priority = curr_thread->priority;
+    	if (!curr_holder->wait_on_lock)
+    		break;
+		// wait_on_lock에 lock을 기다린다고 되어있다면 반드시 그 lock의 홀더가 있어야하므로 임시 ASSERT 추가
+		ASSERT(curr_holder->wait_on_lock->holder); 
+    	curr_holder = curr_holder->wait_on_lock->holder;
+    }
+
+   list_sort(&ready_list, cmp_priority, NULL);
 }
