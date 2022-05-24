@@ -750,7 +750,7 @@ void donate_priority(void)
     struct thread *curr_thread = thread_current();
     struct thread *curr_holder = curr_thread->wait_on_lock->holder;
    
-    for (int i=0; i < 8; i++) // max nested depth is 8
+    for (int i=0; i < NESTED_MAX_DEPTH; i++) // max nested depth is 8
     {
     	curr_holder->priority = curr_thread->priority; // priority donation
     	if (!curr_holder->wait_on_lock) // 8이 되기 전에 더이상 nested되지 않았다면 끝
