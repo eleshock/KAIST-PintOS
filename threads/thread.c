@@ -8,7 +8,7 @@
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
-#include "threads/synch.h"
+// #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "list.h"
@@ -139,7 +139,8 @@ void thread_awake(int64_t ticks)
 		{
 			curr_thread->status = THREAD_READY; // 참조중인 스레드 상태 변경 (READY)
 			temp = list_remove(curr);			// 참조중인 스레드를 포함된 리스트에서 제거, temp = curr->next(sleep_list)
-			list_push_back(&ready_list, curr);	// 참조중인 스레드를 ready_list에 push
+			list_insert_ordered(&ready_list, curr, cmp_priority, NULL);	// 참조중인 스레드를 ready_list에 push
+			// list_push_back(&ready_list, curr);	// 참조중인 스레드를 ready_list에 push
 			curr = list_prev(temp);				// curr = temp->prev
 		}
 		else // min_ticks update
@@ -414,7 +415,10 @@ void thread_set_priority(int new_priority)
 {	
 	ASSERT((PRI_MIN <= new_priority) && (new_priority <= PRI_MAX) ); // 갱신해줄 우선순위가 범위 안에 있는지 확인
 
-	thread_current()->priority = new_priority;
+	// Jack _ original만 갱신하기 위해 기존 priority 갱신부분 삭제
+	thread_current()->original_priority = new_priority; // Jack _ original만 갱신한 뒤
+	refresh_priority(); // Jack _ donation 여부 확인하여 priority 갱신함
+
 	test_max_priority(); 			// 우선순위가 갱신됐으니, 현재 thread가 가장 높은 우선순위인지 확인
 }
 
@@ -504,6 +508,7 @@ kernel_thread(thread_func *function, void *aux)
 	thread_exit(); /* If function() returns, kill the thread. */
 }
 
+/*** GrilledSalmon ***/
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
@@ -518,7 +523,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
+	t->original_priority = priority;	/*** GrilledSalmon ***/
 	t->magic = THREAD_MAGIC;
+	t->wait_on_lock = NULL;				/*** GrilledSalmon ***/
+	list_init(&t->donator_list);			/*** GrilledSalmon ***/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -733,7 +741,6 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 }
 
 /*** hyeRexx ***/
-/* */
 void refresh_priority(void) {
     struct thread *curr = thread_current(); // check curr thread
     ASSERT(curr != NULL); 
@@ -745,6 +752,51 @@ void refresh_priority(void) {
         struct thread best = list_entry(list_pop_front(&curr->donator_list), struct thread, d_elem);
         curr->priority = best->priority;      
     }
-
     return;
+}
+
+/*** Jack ***/
+/*** Lock Acquire 요청하였으나 다른 쓰레드가 홀드하고 있는 경우
+ * 해당 holder부터 시작해서 순회하면서 priority를 기부해줌 ***/
+void donate_priority(void)
+{
+	// donate한다는건 누군가 락을 쥐고있어서 기다려야하므로 이전에 입력되어있어야 함
+    ASSERT(thread_current()->wait_on_lock != NULL); 
+	// wait_on_lock에 등록되어있다는건 holder가 쥐고있다는 의미. holder가 없다면 wait_on_lock은 reset되어있어야함
+    ASSERT(thread_current()->wait_on_lock->holder != NULL); 
+
+    struct thread *curr_thread = thread_current();
+    struct thread *curr_holder = curr_thread->wait_on_lock->holder;
+   
+    for (int i=0; i < NESTED_MAX_DEPTH; i++) // max nested depth is 8
+    {
+    	curr_holder->priority = curr_thread->priority; // priority donation
+    	if (!curr_holder->wait_on_lock) // 8이 되기 전에 더이상 nested되지 않았다면 끝
+    		break;
+		// wait_on_lock에 lock을 기다린다고 되어있다면 반드시 그 lock의 홀더가 있어야하므로 임시 ASSERT 추가
+		ASSERT(curr_holder->wait_on_lock->holder != NULL);
+    	curr_holder = curr_holder->wait_on_lock->holder;
+    }
+   list_sort(&ready_list, cmp_priority, NULL); // donation으로 인한 ready_list 우선순위 변동으로 sort 필요
+}
+
+/*** Jack ***/
+/*** Lock Release시 Donation list 갱신 ***/
+void refresh_donator_list(struct lock *lock)
+{
+    ASSERT(lock != NULL); // 입력 확인
+
+	struct list* curr_dona_li = thread_current()->donator_list;
+	struct list_elem *curr_d_elem; // 순회용
+	struct list_elem *temp; // 리스트에서 제거시 순회용 elem 수정위해 임시 저장
+
+	for (curr_d_elem = list_begin(curr_dona_li); curr_d_elem != list_tail(curr_dona_li); curr_d_elem = list_next(curr_d_elem))
+	{
+		struct thread *curr_thread = list_entry(curr_d_elem, struct thread, d_elem); // d_elem으로부터 thread 추출
+		if (curr_thread->wait_on_lock == lock) // 해당 thread가 기다리는 lock이 현재 release하는 lock이면 donator list에서 제거
+		{
+			temp = list_remove(curr_d_elem);
+			curr_d_elem = list_prev(temp); // 제거 후 순회용 elem 복구
+		}
+	}
 }
