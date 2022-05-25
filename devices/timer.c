@@ -142,9 +142,13 @@ timer_interrupt(struct intr_frame *args UNUSED)
 	}
 
     // Update ALL thread priority and recent_cpu
-    if (thread_mlfqs && !(ticks % 100)) 
+    if (thread_mlfqs) 
     {
-        mlfqs_recalc();
+        mlfqs_increment(); // added 
+        if (!(ticks % 100))
+        {
+            mlfqs_recalc();
+        }
     }
 }
 

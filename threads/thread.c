@@ -204,9 +204,6 @@ void thread_tick(void)
 #endif
 	else{
 		kernel_ticks++;
-		if (thread_mlfqs) {
-			mlfqs_increment();
-		}
 	}
 		
 	/* Enforce preemption. */
@@ -214,7 +211,7 @@ void thread_tick(void)
 		intr_yield_on_return();
         /*** hyeRexx ***/
         // Update curr thread priority
-        if (thread_mlfqs && !(thread_ticks % 4))
+        if (thread_mlfqs && !(thread_ticks % TIME_SLICE))
         { 
             mlfqs_priority(t);
         }
@@ -494,7 +491,7 @@ int thread_get_nice(void) // JACK
 int thread_get_load_avg(void)
 {
 	enum intr_level old_level = intr_disable();
-	int thread_load_avg = fp_to_int(mult_mixed(load_avg, 100));
+	int thread_load_avg = fp_to_int_round(mult_mixed(load_avg, 100));
 	intr_set_level(old_level);
 	
 	return thread_load_avg;
@@ -510,7 +507,7 @@ int thread_get_recent_cpu(void) // JACK
 	old_level = intr_disable();
 	curr_recent_cpu = thread_current()->recent_cpu;
 	intr_set_level(old_level);
-    return_val = fp_to_int(mult_mixed(curr_recent_cpu, 100));
+    return_val = fp_to_int_round(mult_mixed(curr_recent_cpu, 100));
 
 	return return_val;
 }
@@ -872,7 +869,7 @@ void refresh_donator_list(struct lock *lock)
 /*** GrilledSalmon ***/
 void mlfqs_load_avg(void)
 {
-	int ready_threads = 1; // 실행 중인 thread 포함
+	int ready_threads = (thread_current() == idle_thread) ? 0 : 1 ; // 실행 중인 thread 포함
 	struct list_elem *curr_elem = list_begin(&ready_list);
 
 	while (curr_elem != list_tail(&ready_list)) {
@@ -882,7 +879,7 @@ void mlfqs_load_avg(void)
 
 	load_avg = mult_fp(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
 		
-	if (fp_to_int(load_avg) < 0){ // load_avg는 0보다 작아질 수 없다.
+	if (fp_to_int_round(load_avg) < 0){ // load_avg는 0보다 작아질 수 없다.
 		load_avg = LOAD_AVG_DEFAULT;
 	}
 }
@@ -906,10 +903,11 @@ void mlfqs_priority(struct thread *t)
 
     int recent_cpu_fp = t->recent_cpu;
     int nice_fp = int_to_fp(t->nice);
+
     int div = div_mixed(recent_cpu_fp, 4);
     int mul = mult_mixed(nice_fp, 2);
 
-    t->priority = fp_to_int(int_to_fp(PRI_MAX) - div - mul);
+    t->priority = fp_to_int_round(int_to_fp(PRI_MAX) - div - mul);
 }
 
 
@@ -947,7 +945,7 @@ void mlfqs_recent_cpu(struct thread *t)
 	int operand_down = add_mixed(mult_mixed(load_avg, 2), 1); // (2 * load_avg + 1)
 	int res_div = div_fp(operand_up, operand_down); // division
 	int res_multi = mult_fp(res_div, t->recent_cpu); // multiply and round down
-	t->recent_cpu = res_multi + int_to_fp(t->nice); // add nice and change
+	t->recent_cpu = add_mixed(res_multi, t->nice); // add nice and change -- add_mixed 수정
 	
 	return;
 
