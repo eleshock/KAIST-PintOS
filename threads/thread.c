@@ -22,7 +22,7 @@
 #define RECENT_CPU_DEFAULT 0
 #define LOAD_AVG_DEFAULT 0
 
-int load_avg;					/*** GrilledSalmon ***/
+static int load_avg;					/*** GrilledSalmon ***/
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -874,9 +874,10 @@ void mlfqs_load_avg(void)
 		curr_elem = list_next(curr_elem);
 	}
 
-	load_avg = mult_fp(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
-
-	if (fp_to_int(load_avg) < 0){ // load_avg는 0보다 작아질 수 없다.
+	load_avg = mult_mixed(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
+	load_avg = fp_to_int(load_avg);
+		
+	if (load_avg < 0){ // load_avg는 0보다 작아질 수 없다.
 		load_avg = LOAD_AVG_DEFAULT;
 	}
 }
