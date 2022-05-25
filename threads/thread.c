@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "threads/fixed_point.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -16,6 +17,13 @@
 #include "userprog/process.h"
 #endif
 
+/* for MLFQS */					/*** GrilledSalmon ***/
+#define NICE_DEFAULT 0
+#define RECENT_CPU_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+
+static int load_avg;					/*** GrilledSalmon ***/
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -32,6 +40,10 @@ static struct list ready_list;
 /*** Jack ***/
 /* List of threads in THREAD_BLOCK state because they called "timer_sleep" */
 static struct list sleep_list;
+
+/*** hyeRexx ***/
+/* List contains ALL threads */
+struct list integrated_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -115,6 +127,7 @@ void thread_init(void)
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&sleep_list); /*** Jack ***/
+    list_init(&integrated_list); /*** hyeRexx ***/
 	list_init(&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -122,6 +135,10 @@ void thread_init(void)
 	init_thread(initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid();
+
+    /*** hyeRexx ***/
+    initial_thread->nice = NICE_DEFAULT;
+    initial_thread->recent_cpu = RECENT_CPU_DEFAULT;
 }
 
 /*** hyeRexx ***/
@@ -163,6 +180,7 @@ void thread_start(void)
 	struct semaphore idle_started;
 	sema_init(&idle_started, 0);
 	thread_create("idle", PRI_MIN, idle, &idle_started);
+	load_avg = LOAD_AVG_DEFAULT;			/*** GrilledSalmon ***/
 
 	/* Start preemptive thread scheduling. */
 	intr_enable();
@@ -184,12 +202,19 @@ void thread_tick(void)
 	else if (t->pml4 != NULL)
 		user_ticks++;
 #endif
-	else
+	else{
 		kernel_ticks++;
-
+	}
+		
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
 		intr_yield_on_return();
+        /*** hyeRexx ***/
+        // Update curr thread priority
+        if (thread_mlfqs && !(thread_ticks % TIME_SLICE))
+        { 
+            mlfqs_priority(t);
+        }
 }
 
 /* Prints thread statistics. */
@@ -413,6 +438,11 @@ void test_max_priority(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {	
+	/* MLFQS로 실행되는 상황엔 작동하지 않도록 */
+	if (thread_mlfqs){  /*** GrilledSalmon ***/
+		return ;
+	}
+
 	ASSERT((PRI_MIN <= new_priority) && (new_priority <= PRI_MAX) ); // 갱신해줄 우선순위가 범위 안에 있는지 확인
 
 	// Jack _ original만 갱신하기 위해 기존 priority 갱신부분 삭제
@@ -429,30 +459,57 @@ int thread_get_priority(void)
 }
 
 /* Sets the current thread's nice value to NICE. */
-void thread_set_nice(int nice UNUSED)
+void thread_set_nice(int nice UNUSED) // JACK
 {
-	/* TODO: Your implementation goes here */
+	// ASSERT(nice != NULL);
+
+	enum intr_level old_level;
+
+	old_level = intr_disable();
+	thread_current()->nice = nice;
+	intr_set_level(old_level);
+	
+	return;
 }
+
 
 /* Returns the current thread's nice value. */
-int thread_get_nice(void)
+int thread_get_nice(void) // JACK
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	enum intr_level old_level;
+	int curr_nice;
+
+	old_level = intr_disable();
+	curr_nice = thread_current()->nice;
+	intr_set_level(old_level);
+	
+	return curr_nice;
 }
 
+/*** GrilledSalomn ***/
 /* Returns 100 times the system load average. */
 int thread_get_load_avg(void)
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	enum intr_level old_level = intr_disable();
+	int thread_load_avg = fp_to_int_round(mult_mixed(load_avg, 100));
+	intr_set_level(old_level);
+	
+	return thread_load_avg;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
-int thread_get_recent_cpu(void)
+int thread_get_recent_cpu(void) // JACK
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	enum intr_level old_level;
+	int curr_recent_cpu;
+    int return_val;
+
+	old_level = intr_disable();
+	curr_recent_cpu = thread_current()->recent_cpu;
+	intr_set_level(old_level);
+    return_val = fp_to_int_round(mult_mixed(curr_recent_cpu, 100));
+
+	return return_val;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -517,7 +574,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	ASSERT(t != NULL);
 	ASSERT(PRI_MIN <= priority && priority <= PRI_MAX);
 	ASSERT(name != NULL);
-
+ 
 	memset(t, 0, sizeof *t);
 	t->status = THREAD_BLOCKED;
 	strlcpy(t->name, name, sizeof t->name);
@@ -526,6 +583,11 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->original_priority = priority;	/*** GrilledSalmon ***/
 	t->magic = THREAD_MAGIC;
 	t->wait_on_lock = NULL;				/*** GrilledSalmon ***/
+	t->nice = running_thread()->nice; // Jack - thread가 맨 처음에 만들어질때 nice값이 0으로 되어있고, 그 이후는 쓰레드를 만드는 쓰레드의 nice값을 따라가야함
+	t->recent_cpu = running_thread()->recent_cpu; // Jack  - 이 또한 맨 처음 만들어지는 thread는 0 이나 이후에는 생성시키는 쓰레드의 값을 따라감
+	list_push_back(&integrated_list, &t->i_elem); // Jack - 총괄 리스트에 추가
+	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
+	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
 }
 
@@ -695,6 +757,7 @@ schedule(void)
 		if (curr && curr->status == THREAD_DYING && curr != initial_thread)
 		{
 			ASSERT(curr != next);
+			list_remove(&curr->i_elem); // Jack : 쓰레드 루틴 끝나면 총괄 리스트에서도 빼줌.
 			list_push_back(&destruction_req, &curr->elem);
 		}
 
@@ -801,3 +864,90 @@ void refresh_donator_list(struct lock *lock)
 		}
 	}
 }
+
+
+/*** GrilledSalmon ***/
+void mlfqs_load_avg(void)
+{
+	int ready_threads = (thread_current() == idle_thread) ? 0 : 1 ; // 실행 중인 thread 포함
+	struct list_elem *curr_elem = list_begin(&ready_list);
+
+	while (curr_elem != list_tail(&ready_list)) {
+		ready_threads++;
+		curr_elem = list_next(curr_elem);
+	}
+
+	load_avg = mult_fp(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
+		
+	if (fp_to_int_round(load_avg) < 0){ // load_avg는 0보다 작아질 수 없다.
+		load_avg = LOAD_AVG_DEFAULT;
+	}
+}
+
+/*** GrilledSalmon ***/
+void mlfqs_increment(void)
+{
+	struct thread *curr_thread = thread_current();
+
+	if (curr_thread != idle_thread) {
+		curr_thread->recent_cpu = add_mixed(curr_thread->recent_cpu, 1);
+	}
+}
+
+/*** hyeRexx ***/
+/* Calculate thread priority */
+void mlfqs_priority(struct thread *t)
+{
+    ASSERT(t != NULL);
+    ASSERT(t != idle_thread);
+
+    int recent_cpu_fp = t->recent_cpu;
+    int nice_fp = int_to_fp(t->nice);
+
+    int div = div_mixed(recent_cpu_fp, 4);
+    int mul = mult_mixed(nice_fp, 2);
+
+    t->priority = fp_to_int_round(int_to_fp(PRI_MAX) - div - mul);
+}
+
+
+/* Iterate all threads and update their priority and recent cpu */
+void mlfqs_recalc(void) 
+{
+    struct list_elem *ref_i; // referenced integrated list elem
+    struct thread *ref_t;    // referenced thread contain ref_i
+    
+    mlfqs_load_avg();   // update load average
+
+    // iterate integrated list and update priority and recent cpu 
+    for(ref_i = list_begin(&integrated_list); ref_i != list_tail(&integrated_list); ref_i = list_next(ref_i)) {
+        ref_t = list_entry(ref_i, struct thread, i_elem);
+        if(ref_t == idle_thread) // filter out idle thread 
+        {
+            continue;
+        }
+        mlfqs_recent_cpu(ref_t); // update recent cpu ~~ Jack 확인
+        mlfqs_priority(ref_t);   // update priority
+    }
+
+    list_sort(&ready_list, cmp_priority, NULL);
+}
+
+/*** Jack ***/
+/*** thread t 의 recent_cpu를 재계산함 ***/
+void mlfqs_recent_cpu(struct thread *t)
+{
+	ASSERT(t != NULL);
+	ASSERT(t != idle_thread);
+	
+	// recent_cpu = ((2 * load_avg)/(2 * load_avg + 1)) * recent_cpu + nice
+	int operand_up = mult_mixed(load_avg, 2); // (2 * load_avg)
+	int operand_down = add_mixed(mult_mixed(load_avg, 2), 1); // (2 * load_avg + 1)
+	int res_div = div_fp(operand_up, operand_down); // division
+	int res_multi = mult_fp(res_div, t->recent_cpu); // multiply and round down
+	t->recent_cpu = add_mixed(res_multi, t->nice); // add nice and change -- add_mixed 수정
+	
+	return;
+
+}
+
