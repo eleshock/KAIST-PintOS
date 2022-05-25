@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "threads/fixed_point.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -15,6 +16,13 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+
+/* for MLFQS */					/*** GrilledSalmon ***/
+#define NICE_DEFALUT 0
+#define RECENT_CPU_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+
+int load_avg;					/*** GrilledSalmon ***/
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -163,6 +171,7 @@ void thread_start(void)
 	struct semaphore idle_started;
 	sema_init(&idle_started, 0);
 	thread_create("idle", PRI_MIN, idle, &idle_started);
+	load_avg = LOAD_AVG_DEFAULT;			/*** GrilledSalmon ***/
 
 	/* Start preemptive thread scheduling. */
 	intr_enable();
@@ -413,6 +422,11 @@ void test_max_priority(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {	
+	/* MLFQS로 실행되는 상황엔 작동하지 않도록 */
+	if (thread_mlfqs){  /*** GrilledSalmon ***/
+		return ;
+	}
+
 	ASSERT((PRI_MIN <= new_priority) && (new_priority <= PRI_MAX) ); // 갱신해줄 우선순위가 범위 안에 있는지 확인
 
 	// Jack _ original만 갱신하기 위해 기존 priority 갱신부분 삭제
@@ -441,11 +455,15 @@ int thread_get_nice(void)
 	return 0;
 }
 
+/*** GrilledSalomn ***/
 /* Returns 100 times the system load average. */
 int thread_get_load_avg(void)
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	enum intr_level old_level = intr_disable();
+	int thread_load_avg = 100*load_avg;
+	intr_set_level(old_level);
+	
+	return thread_load_avg;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -801,3 +819,33 @@ void refresh_donator_list(struct lock *lock)
 		}
 	}
 }
+
+
+/*** GrilledSalmon ***/
+void mlfqs_load_avg(void)
+{
+	int ready_threads = 1; // 실행 중인 thread 포함
+	struct list_elem *curr_elem = list_begin(&ready_list);
+
+	while (curr_elem != list_tail(&ready_list)) {
+		ready_threads++;
+		curr_elem = list_next(curr_elem);
+	}
+
+	load_avg = mult_fp(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
+
+	if (fp_to_int(load_avg) < 0){ // load_avg는 0보다 작아질 수 없다.
+		load_avg = LOAD_AVG_DEFAULT;
+	}
+}
+
+/*** GrilledSalmon ***/
+void mlfqs_increment(void)
+{
+	struct thread *curr_thread = thread_current();
+
+	if (curr_thread != idle_thread) {
+		curr_thread->recent_cpu++;
+	}
+}
+

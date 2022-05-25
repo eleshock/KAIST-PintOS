@@ -171,3 +171,8 @@ void donate_priority(void);
 void refresh_donator_list(struct lock *lock);
 
 #define NESTED_MAX_DEPTH 8
+
+
+/*** GrilledSalmon ***/
+void mlfqs_load_avg(void);
+void mlfqs_increment(void);
