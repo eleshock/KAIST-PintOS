@@ -18,7 +18,7 @@
 #endif
 
 /* for MLFQS */					/*** GrilledSalmon ***/
-#define NICE_DEFALUT 0
+#define NICE_DEFAULT 0
 #define RECENT_CPU_DEFAULT 0
 #define LOAD_AVG_DEFAULT 0
 
@@ -580,8 +580,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->original_priority = priority;	/*** GrilledSalmon ***/
 	t->magic = THREAD_MAGIC;
 	t->wait_on_lock = NULL;				/*** GrilledSalmon ***/
-	t->nice = thread_current()->nice; // Jack - thread가 맨 처음에 만들어질때 nice값이 0으로 되어있고, 그 이후는 쓰레드를 만드는 쓰레드의 nice값을 따라가야함
-	t->recent_cpu = thread_current()->recent_cpu; // Jack  - 이 또한 맨 처음 만들어지는 thread는 0 이나 이후에는 생성시키는 쓰레드의 값을 따라감
+	t->nice = running_thread()->nice; // Jack - thread가 맨 처음에 만들어질때 nice값이 0으로 되어있고, 그 이후는 쓰레드를 만드는 쓰레드의 nice값을 따라가야함
+	t->recent_cpu = running_thread()->recent_cpu; // Jack  - 이 또한 맨 처음 만들어지는 thread는 0 이나 이후에는 생성시키는 쓰레드의 값을 따라감
 	list_push_back(&integrated_list, &t->i_elem); // Jack - 총괄 리스트에 추가
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
@@ -890,6 +890,7 @@ void mlfqs_increment(void)
 	if (curr_thread != idle_thread) {
 		curr_thread->recent_cpu++;
 	}
+}
 
 /*** hyeRexx ***/
 /* Calculate thread priority */
