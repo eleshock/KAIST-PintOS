@@ -199,15 +199,17 @@ lock_acquire (struct lock *lock) {
 
    struct thread *curr = thread_current();
    
-   // 이미 lock을 쥐고있는 thread가 있다면(대기해야 한다면)
-   if (lock->holder != NULL) { 
-      curr->wait_on_lock = lock;       // 현재 thread가 대기하고 있는 lock 표시
-      if (curr->priority > lock->holder->priority){
-         donate_priority();            // priority donation
-         list_insert_ordered(&lock->holder->donator_list, &curr->d_elem, cmp_priority, NULL);
-      }
-   }
-
+   if(!(thread_mlfqs))
+   {
+	   // 이미 lock을 쥐고있는 thread가 있다면(대기해야 한다면)
+	   if (lock->holder != NULL) { 
+	      curr->wait_on_lock = lock;       // 현재 thread가 대기하고 있는 lock 표시
+	      if (curr->priority > lock->holder->priority){
+		 donate_priority();            // priority donation
+		 list_insert_ordered(&lock->holder->donator_list, &curr->d_elem, cmp_priority, NULL);
+	      }
+	   }
+    }
    sema_down (&lock->semaphore);
    lock->holder = thread_current ();
    curr->wait_on_lock = NULL;          // wain_on_lock 초기화
