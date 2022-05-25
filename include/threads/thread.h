@@ -104,6 +104,11 @@ struct thread
 	struct list donator_list; 	/* priority donator가 저장되는 리스트 */
 	struct list_elem d_elem; 	/* List element. */
 
+    /*** hyeRexx ***/
+    int nice;                       // nice value
+    int recent_cpu;                 // recent cpu consumption
+    struct list_elem i_elem;        // integtated list elements
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
@@ -172,7 +177,13 @@ void refresh_donator_list(struct lock *lock);
 
 #define NESTED_MAX_DEPTH 8
 
-
 /*** GrilledSalmon ***/
 void mlfqs_load_avg(void);
 void mlfqs_increment(void);
+
+/*** hyeRexx ***/
+void mlfqs_recalc(void);
+void mlfqs_priority(struct thread *t);
+
+/*** Jack ***/
+void mlfqs_recent_cpu(struct thread *t);

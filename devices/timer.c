@@ -130,6 +130,7 @@ void timer_print_stats(void)
 
 /* Timer interrupt handler. */
 /*** hyeRexx ***/
+/*** hyeRexx :: Advenced Scheduler ***/
 static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
@@ -139,6 +140,12 @@ timer_interrupt(struct intr_frame *args UNUSED)
 	{ 
 		thread_awake(ticks);
 	}
+
+    // Update ALL thread priority and recent_cpu
+    if (thread_mlfqs && !(ticks % 100)) 
+    {
+        mlfqs_recalc();
+    }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
