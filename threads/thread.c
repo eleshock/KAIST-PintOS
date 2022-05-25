@@ -202,9 +202,13 @@ void thread_tick(void)
 	else if (t->pml4 != NULL)
 		user_ticks++;
 #endif
-	else
+	else{
 		kernel_ticks++;
-
+		if (thread_mlfqs) {
+			mlfqs_increment();
+		}
+	}
+		
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
 		intr_yield_on_return();
