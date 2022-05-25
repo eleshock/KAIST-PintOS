@@ -721,6 +721,7 @@ schedule(void)
 		if (curr && curr->status == THREAD_DYING && curr != initial_thread)
 		{
 			ASSERT(curr != next);
+			list_remove(&curr->i_elem); // Jack : 쓰레드 루틴 끝나면 총괄 리스트에서도 빼줌.
 			list_push_back(&destruction_req, &curr->elem);
 		}
 
