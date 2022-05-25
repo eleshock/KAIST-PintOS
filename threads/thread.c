@@ -429,16 +429,31 @@ int thread_get_priority(void)
 }
 
 /* Sets the current thread's nice value to NICE. */
-void thread_set_nice(int nice UNUSED)
+void thread_set_nice(int nice UNUSED) // JACK
 {
-	/* TODO: Your implementation goes here */
+	ASSERT(nice != NULL);
+
+	enum intr_level old_level;
+
+	old_level = intr_disable();
+	thread_current()->nice = nice;
+	intr_set_level(old_level);
+	
+	return;
 }
 
+
 /* Returns the current thread's nice value. */
-int thread_get_nice(void)
+int thread_get_nice(void) // JACK
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	enum intr_level old_level;
+	int curr_nice;
+
+	old_level = intr_disable();
+	curr_nice = thread_current()->nice;
+	intr_set_level(old_level);
+	
+	return curr_nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -449,10 +464,16 @@ int thread_get_load_avg(void)
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
-int thread_get_recent_cpu(void)
+int thread_get_recent_cpu(void) // JACK
 {
-	/* TODO: Your implementation goes here */
-	return 0;
+	enum intr_level old_level;
+	int curr_recent_cpu;
+
+	old_level = intr_disable();
+	curr_recent_cpu = thread_current()->recent_cpu;
+	intr_set_level(old_level);
+
+	return curr_recent_cpu * 100;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -526,6 +547,11 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->original_priority = priority;	/*** GrilledSalmon ***/
 	t->magic = THREAD_MAGIC;
 	t->wait_on_lock = NULL;				/*** GrilledSalmon ***/
+	t->nice = thread_current()->nice; // Jack - thread가 맨 처음에 만들어질때 nice값이 0으로 되어있고, 그 이후는 쓰레드를 만드는 쓰레드의 nice값을 따라가야함
+	t->recent_cpu = thread_current()->recent_cpu; // Jack  - 이 또한 맨 처음 만들어지는 thread는 0 이나 이후에는 생성시키는 쓰레드의 값을 따라감
+	list_push_back(&integrated_list, &t->i_elem); // Jack - 총괄 리스트에 추가
+	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
+	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
 }
 
@@ -695,6 +721,7 @@ schedule(void)
 		if (curr && curr->status == THREAD_DYING && curr != initial_thread)
 		{
 			ASSERT(curr != next);
+			list_remove(&curr->i_elem); // Jack : 쓰레드 루틴 끝나면 총괄 리스트에서도 빼줌.
 			list_push_back(&destruction_req, &curr->elem);
 		}
 
@@ -801,3 +828,21 @@ void refresh_donator_list(struct lock *lock)
 		}
 	}
 }
+
+/*** Jack ***/
+/*** thread t 의 recent_cpu를 재계산함 ***/
+void mlfqs_recent_cpu(struct thread *t)
+{
+	ASSERT(t != NULL);
+	ASSERT(t != idle_thread);
+	
+	// recent_cpu = ((2 * load_avg)/(2 * load_avg + 1)) * recent_cpu + nice
+	int operand_up = int_to_fp(2 * load_avg); // (2 * load_avg)
+	int operand_down = int_to_fp(2 * load_avg + 1); // (2 * load_avg + 1)
+	int res_div = div_fp(operand_up, operand_down); // division
+	int res_multi = fp_to_int(mult_mixed(res_div, t->recent_cpu)); // multiply and round down
+	t->recent_cpu = res_multi + t->nice; // add nice and change
+	
+	return;
+}
+

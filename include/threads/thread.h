@@ -170,4 +170,7 @@ bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *au
 void donate_priority(void);
 void refresh_donator_list(struct lock *lock);
 
+/*** Jack ***/
+void mlfqs_recent_cpu(struct thread *t);
+
 #define NESTED_MAX_DEPTH 8
