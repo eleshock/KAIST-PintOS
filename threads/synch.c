@@ -249,10 +249,15 @@ lock_release (struct lock *lock) {
    ASSERT (lock_held_by_current_thread (lock));
 
    /*** hyeRexx ***/
-   refresh_donator_list(lock); // holder 해제하기 전 call refresh
-
    lock->holder = NULL;
-   refresh_priority(); // 우선순위 원복 또는 교체 처리
+
+   /*** Jack ***/
+   if (!thread_mlfqs) // mlfqs가 아닐때에만 donation관련 작업 수행
+   {
+      /*** hyeRexx ***/
+      refresh_donator_list(lock); // holder 해제하기 전 call refresh -> holder 해제 후에 진행해도 특이점 없음.
+      refresh_priority(); // 우선순위 원복 또는 교체 처리
+   }
    
    sema_up (&lock->semaphore);
 }
