@@ -3,6 +3,7 @@
 
 #include <list.h>
 #include <stdbool.h>
+#include <debug.h>
 
 /* A counting semaphore. */
 struct semaphore {
@@ -15,7 +16,7 @@ void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
-
+ 
 /* Lock. */
 struct lock {
 	struct thread *holder;      /* Thread holding lock (for debugging). */
@@ -44,5 +45,8 @@ void cond_broadcast (struct condition *, struct lock *);
  * optimization barrier.  See "Optimization Barriers" in the
  * reference guide for more information.*/
 #define barrier() asm volatile ("" : : : "memory")
+
+/*** GrilledSalmon ***/
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 #endif /* threads/synch.h */

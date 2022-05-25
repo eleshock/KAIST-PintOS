@@ -120,8 +120,7 @@ struct list_elem *list_tail (struct list *);
 
 /* List insertion. */
 void list_insert (struct list_elem *, struct list_elem *);
-void list_splice (struct list_elem *before,
-		struct list_elem *first, struct list_elem *last);
+void list_splice (struct list_elem *before, struct list_elem *first, struct list_elem *last);
 void list_push_front (struct list *, struct list_elem *);
 void list_push_back (struct list *, struct list_elem *);
 
@@ -144,6 +143,7 @@ void list_reverse (struct list *);
 /* Compares the value of two list elements A and B, given
    auxiliary data AUX.  Returns true if A is less than B, or
    false if A is greater than or equal to B. */
+/*** hyeRexx : 우와! 함수포인터다! ***/
 typedef bool list_less_func (const struct list_elem *a,
                              const struct list_elem *b,
                              void *aux);

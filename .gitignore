@@ -1,0 +1,8 @@
+*.bin
+*.o
+*.result
+*.output
+*.errors
+*.vscode
+*.d
+build/
