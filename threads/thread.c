@@ -829,7 +829,7 @@ void mlfqs_priority(struct thread *t)
     int div = div_mixed(recent_cpu_fp, 4);
     int mul = mult_mixed(nice_fp, 2);
 
-    t->priority = PRI_MAX - fp_to_int_round(div - mul);
+    t->priority = PRI_MAX - fp_to_int_round(div + mul);
 }
 
 
