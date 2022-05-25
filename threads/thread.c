@@ -460,7 +460,7 @@ int thread_get_priority(void)
 /* Sets the current thread's nice value to NICE. */
 void thread_set_nice(int nice UNUSED) // JACK
 {
-	ASSERT(nice != NULL);
+	// ASSERT(nice != NULL);
 
 	enum intr_level old_level;
 
@@ -490,7 +490,7 @@ int thread_get_nice(void) // JACK
 int thread_get_load_avg(void)
 {
 	enum intr_level old_level = intr_disable();
-	int thread_load_avg = 100*load_avg;
+	int thread_load_avg = fp_to_int(mult_mixed(load_avg, 100));
 	intr_set_level(old_level);
 	
 	return thread_load_avg;
@@ -501,12 +501,14 @@ int thread_get_recent_cpu(void) // JACK
 {
 	enum intr_level old_level;
 	int curr_recent_cpu;
+    int return_val;
 
 	old_level = intr_disable();
 	curr_recent_cpu = thread_current()->recent_cpu;
 	intr_set_level(old_level);
+    return_val = fp_to_int(mult_mixed(curr_recent_cpu, 100));
 
-	return curr_recent_cpu * 100;
+	return return_val;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -571,7 +573,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	ASSERT(t != NULL);
 	ASSERT(PRI_MIN <= priority && priority <= PRI_MAX);
 	ASSERT(name != NULL);
-
+ 
 	memset(t, 0, sizeof *t);
 	t->status = THREAD_BLOCKED;
 	strlcpy(t->name, name, sizeof t->name);
@@ -874,10 +876,9 @@ void mlfqs_load_avg(void)
 		curr_elem = list_next(curr_elem);
 	}
 
-	load_avg = mult_mixed(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
-	load_avg = fp_to_int(load_avg);
+	load_avg = mult_fp(div_mixed(int_to_fp(59), 60), load_avg) + mult_mixed(div_mixed(int_to_fp(1), 60), ready_threads);
 		
-	if (load_avg < 0){ // load_avg는 0보다 작아질 수 없다.
+	if (fp_to_int(load_avg) < 0){ // load_avg는 0보다 작아질 수 없다.
 		load_avg = LOAD_AVG_DEFAULT;
 	}
 }
@@ -888,7 +889,7 @@ void mlfqs_increment(void)
 	struct thread *curr_thread = thread_current();
 
 	if (curr_thread != idle_thread) {
-		curr_thread->recent_cpu++;
+		curr_thread->recent_cpu = add_mixed(curr_thread->recent_cpu, 1);
 	}
 }
 
@@ -899,12 +900,12 @@ void mlfqs_priority(struct thread *t)
     ASSERT(t != NULL);
     ASSERT(t != idle_thread);
 
-    int recent_cpu_fp = int_to_fp(t->recent_cpu);
+    int recent_cpu_fp = t->recent_cpu;
     int nice_fp = int_to_fp(t->nice);
     int div = div_mixed(recent_cpu_fp, 4);
     int mul = mult_mixed(nice_fp, 2);
 
-    t->priority = PRI_MAX - fp_to_int_round(div + mul);
+    t->priority = fp_to_int(int_to_fp(PRI_MAX) - div - mul);
 }
 
 
@@ -938,11 +939,11 @@ void mlfqs_recent_cpu(struct thread *t)
 	ASSERT(t != idle_thread);
 	
 	// recent_cpu = ((2 * load_avg)/(2 * load_avg + 1)) * recent_cpu + nice
-	int operand_up = int_to_fp(2 * load_avg); // (2 * load_avg)
-	int operand_down = int_to_fp(2 * load_avg + 1); // (2 * load_avg + 1)
+	int operand_up = mult_mixed(load_avg, 2); // (2 * load_avg)
+	int operand_down = add_mixed(mult_mixed(load_avg, 2), 1); // (2 * load_avg + 1)
 	int res_div = div_fp(operand_up, operand_down); // division
-	int res_multi = fp_to_int(mult_mixed(res_div, t->recent_cpu)); // multiply and round down
-	t->recent_cpu = res_multi + t->nice; // add nice and change
+	int res_multi = mult_fp(res_div, t->recent_cpu); // multiply and round down
+	t->recent_cpu = res_multi + int_to_fp(t->nice); // add nice and change
 	
 	return;
 
