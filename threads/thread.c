@@ -33,6 +33,10 @@ static struct list ready_list;
 /* List of threads in THREAD_BLOCK state because they called "timer_sleep" */
 static struct list sleep_list;
 
+/*** hyeRexx ***/
+/* List contains ALL threads */
+struct list integrated_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -115,6 +119,7 @@ void thread_init(void)
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&sleep_list); /*** Jack ***/
+    list_init(&integrated_list); /*** hyeRexx ***/
 	list_init(&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -122,6 +127,10 @@ void thread_init(void)
 	init_thread(initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid();
+
+    /*** hyeRexx ***/
+    initial_thread->nice = 0;
+    initial_thread->recent_cpu = 0;
 }
 
 /*** hyeRexx ***/
@@ -190,6 +199,12 @@ void thread_tick(void)
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
 		intr_yield_on_return();
+        /*** hyeRexx ***/
+        // Update curr thread priority
+        if (thread_mlfqs && !(thread_ticks % 4))
+        { 
+            mlfqs_priority(t);
+        }
 }
 
 /* Prints thread statistics. */
@@ -800,4 +815,42 @@ void refresh_donator_list(struct lock *lock)
 			curr_d_elem = list_prev(temp); // 제거 후 순회용 elem 복구
 		}
 	}
+}
+
+/*** hyeRexx ***/
+/* Calculate thread priority */
+void mlfqs_priority(struct thread *t)
+{
+    ASSERT(t != NULL);
+    ASSERT(t != idle_thread);
+
+    int recent_cpu_fp = int_to_fp(t->recent_cpu);
+    int nice_fp = int_to_fp(t->nice);
+    int div = div_mixed(recent_cpu_fp, 4);
+    int mul = mult_mixed(nice_fp, 2);
+
+    t->priority = PRI_MAX - fp_to_int_round(div - mul);
+}
+
+
+/* Iterate all threads and update their priority and recent cpu */
+void mlfqs_recalc(void) 
+{
+    struct list_elem *ref_i; // referenced integrated list elem
+    struct thread *ref_t;    // referenced thread contain ref_i
+    
+    mlfqs_load_avg();   // update load average
+
+    // iterate integrated list and update priority and recent cpu 
+    for(ref_i = list_begin(&integrated_list); ref_i != list_tail(&integrated_list); ref_i = list_next(ref_i)) {
+        ref_t = list_entry(ref_i, struct thread, i_elem);
+        if(ref_t == idle_thread) // filter out idle thread 
+        {
+            continue;
+        }
+        mlfqs_recent_cpu(ref_t); // update recent cpu ~~ Jack 확인
+        mlfqs_priority(ref_t);   // update priority
+    }
+
+    list_sort(&ready_list, cmp_priority, NULL);
 }
