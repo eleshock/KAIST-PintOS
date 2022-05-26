@@ -464,10 +464,16 @@ void thread_set_nice(int nice UNUSED) // JACK
 	// ASSERT(nice != NULL);
 
 	enum intr_level old_level;
+	struct thread *curr = thread_current();
 
 	old_level = intr_disable();
-	thread_current()->nice = nice;
+	curr->nice = nice;
 	intr_set_level(old_level);
+
+	// Jack - set nice에서 nice 변동 후 priority 재계산, 필요시 변동에 따른 scheduling 진행되도록 추가
+	mlfqs_recent_cpu(curr);
+	mlfqs_priority(curr);
+	test_max_priority();
 	
 	return;
 }
