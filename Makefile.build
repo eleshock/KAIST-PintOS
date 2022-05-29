@@ -62,3 +62,7 @@ Makefile: $(SRCDIR)/Makefile.build
 	cp $< $@
 
 -include $(DEPENDS)
+
+disk:
+	pintos-mkdisk filesys.dsk 10
+	pintos --fs-disk filesys.dsk -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
