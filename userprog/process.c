@@ -53,7 +53,7 @@ process_create_initd (const char *file_name) {
 
     /*** hyeRexx ***/
     fn_for_tok = palloc_get_page(0);
-    ASSERT(fn_for_tok != NULL); // check memory
+    ASSERT(fn_for_tok != NULL); // allocation check
     strlcpy(fn_for_tok, file_name, PGSIZE);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
 
