@@ -52,15 +52,18 @@ process_create_initd (const char *file_name) {
 	strlcpy (fn_copy, file_name, PGSIZE);
 
     /*** hyeRexx ***/
-    token = palloc_get_page(0);
-    ASSERT(token != NULL); // check memory
-    strlcpy(file_name, fn_for_tok, PGSIZE);
-    token = strtok_r(file_name, " ", &save_ptr);
+    fn_for_tok = palloc_get_page(0);
+    ASSERT(fn_for_tok != NULL); // check memory
+    strlcpy(fn_for_tok, file_name, PGSIZE);
+    token = strtok_r(fn_for_tok, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
+    /*** hyeRexx : first arg : file_name -> token ***/
 	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
-	if (tid == TID_ERROR)
+	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
+		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
+    }
 	return tid;
 }
 
