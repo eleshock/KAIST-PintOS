@@ -42,6 +42,7 @@ tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
+    char *token, *save_ptr, *fn_for_tok; /*** hyeRexx ***/
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
@@ -50,10 +51,19 @@ process_create_initd (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
+    /*** hyeRexx ***/
+    fn_for_tok = palloc_get_page(0);
+    ASSERT(fn_for_tok != NULL); // allocation check
+    strlcpy(fn_for_tok, file_name, PGSIZE);
+    token = strtok_r(fn_for_tok, " ", &save_ptr);
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
-	if (tid == TID_ERROR)
+    /*** hyeRexx : first arg : file_name -> token ***/
+	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
+	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
+		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
+    }
 	return tid;
 }
 
