@@ -275,10 +275,11 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 
     /* Add to run queue. */
 	thread_unblock(t);
-    
+
     /*** hyeRexx ***/
     ASSERT(t->status == THREAD_READY); // 언블락 잘 되었는지 확인
     /* 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기 */
+
     test_max_priority();
 
 	return tid;
@@ -420,7 +421,6 @@ void thread_sleep(int64_t awake_ticks)
  * 자신이 더 낮다면 yield */
 void test_max_priority(void)
 {
-	
 	if (list_empty(&ready_list)) { // ready_list가 비어있을 땐 그냥 리턴
 		return;
 	}
@@ -565,7 +565,6 @@ static void
 kernel_thread(thread_func *function, void *aux)
 {
 	ASSERT(function != NULL);
-    printf("\n__debug :: %s\n", aux);
 	intr_enable(); /* The scheduler runs with interrupts off. */
 	function(aux); /* Execute the thread function. */
 	thread_exit(); /* If function() returns, kill the thread. */

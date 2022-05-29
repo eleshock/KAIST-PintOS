@@ -44,7 +44,6 @@ process_create_initd (const char *file_name) {
 	tid_t tid;
     char *token, *save_ptr, *fn_for_tok; /*** hyeRexx ***/
 
-    printf("initial filename : %s\n", file_name);
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
@@ -57,11 +56,10 @@ process_create_initd (const char *file_name) {
     ASSERT(fn_for_tok != NULL); // allocation check
     strlcpy(fn_for_tok, file_name, PGSIZE);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
-    printf("\n__debug :: %s\n", token);
 
 	/* Create a new thread to execute FILE_NAME. */
     /*** hyeRexx : first arg : file_name -> token ***/
-	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (token, PRI_MAX, initd, fn_copy);
 	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
 		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
@@ -75,8 +73,7 @@ initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-
-    printf("\n__debug :: process init check\n");    
+  
 	process_init ();
 
 	if (process_exec (f_name) < 0)
@@ -191,10 +188,7 @@ process_exec (void *f_name) {
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
 	/* We first kill the current context */
-    printf("\n__debug :: before cleanup\n");
 	process_cleanup ();
-    printf("\n__debug :: cleanup fin.\n");
-	printf("present f_name : %s\n", (char *)f_name); // debug
 	/* And then load the binary */
 	success = load (thread_current()->name, &_if);
 
@@ -225,6 +219,7 @@ process_exec (void *f_name) {
 void argument_stack (char **parse, int count, struct intr_frame *_if)
 {	
 	char *now_loc = _if->rsp;			// 스택에 넣어줄 위치
+	char **now_loc_casted;
 	int now_arg = count;
 	size_t now_str_len;
 	char *argp_arr[count];				// arg가 저장된 스택의 포인터 array
@@ -234,30 +229,32 @@ void argument_stack (char **parse, int count, struct intr_frame *_if)
 		now_str_len = strlen(parse[now_arg]);
 		now_loc -= now_str_len + 1;
 		argp_arr[now_arg] = now_loc;
-		strlcpy(now_loc, parse[now_arg], now_str_len);
+		strlcpy(now_loc, parse[now_arg], now_str_len + 1);
 	}
+	memset((char *)((uint64_t)now_loc & (~7)), 0, (uint64_t)now_loc - (uint64_t)now_loc & (~7));
 	now_loc = (uint64_t)now_loc & (~7);					// word align
-	now_loc = (char **)now_loc;			// 이후 연산(포인터 저장)을 위해 type casting
+	now_loc_casted = (char **)now_loc;			// 이후 연산(포인터 저장)을 위해 type casting - 새 변수로 casting
+
 	/* arg의 마지막 NULL로 */
-	now_loc--;
-	*now_loc = NULL;
+	now_loc_casted--;
+	*now_loc_casted = NULL;
 
 	now_arg = count;
 	while (now_arg-- > 0){
-		now_loc--;
-		*now_loc = argp_arr[now_arg];
+		now_loc_casted--;
+		*now_loc_casted = argp_arr[now_arg];
 	}
-
-	/* _if rsp 갱신 */
-	_if->rsp = (uint64_t)now_loc;				
 	
 	/* _if rdi, rsi 갱신 */
 	_if->R.rdi = (uint64_t)count;		// argc
-	_if->R.rsi = (uint64_t)now_loc;		// argv
+	_if->R.rsi = (uint64_t)now_loc_casted;		// argv
 
 	/* retrun address */
-	now_loc--;
-	*now_loc = NULL;
+	now_loc_casted--;
+	*now_loc_casted = NULL;
+
+	/* _if rsp 갱신 */
+	_if->rsp = (uint64_t)now_loc_casted;
 }
 
 
