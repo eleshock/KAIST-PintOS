@@ -215,6 +215,47 @@ process_exec (void *f_name) {
 	NOT_REACHED ();
 }
 
+/*** GrilledSalmon ***/
+/* parse된 string(arg) 정보를 user_stack에 쌓아주는 함수 */
+void argument_stack (char **parse, int count, struct intr_frame *_if)
+{	
+	char *now_loc = _if->rsp;			// 스택에 넣어줄 위치
+	int now_arg = count;
+	size_t now_str_len;
+	char *argp_arr[count];				// arg가 저장된 스택의 포인터 array
+
+	/* argv 값 넣어주기 */
+	while (now_arg-- > 0) {				// debugging할 때 참고
+		now_str_len = strlen(parse[now_arg]);
+		now_loc -= now_str_len + 1;
+		argp_arr[now_arg] = now_loc;
+		strlcpy(now_loc, parse[now_arg], now_str_len);
+	}
+	now_loc &= (~7);					// word align
+	
+	now_loc = (char **)now_loc;			// 이후 연산(포인터 저장)을 위해 type casting
+	/* arg의 마지막 NULL로 */
+	now_loc--;
+	*now_loc = NULL;
+
+	now_arg = count;
+	while (now_arg-- > 0){
+		now_loc--;
+		*now_loc = argp_arr[now_arg];
+	}
+
+	/* _if rsp 갱신 */
+	_if->rsp = (uint64_t)now_loc;				
+	
+	/* _if rdi, rsi 갱신 */
+	_if->R.rdi = (uint64_t)count;		// argc
+	_if->R.rsi = (uint64_t)now_loc;		// argv
+
+	/* retrun address */
+	now_loc--;
+	*now_loc = NULL;
+}
+
 
 /* Waits for thread TID to die and returns its exit status.  If
  * it was terminated by the kernel (i.e. killed due to an
