@@ -44,6 +44,7 @@ process_create_initd (const char *file_name) {
 	tid_t tid;
     char *token, *save_ptr, *fn_for_tok; /*** hyeRexx ***/
 
+    printf("initial filename : %s\n", file_name);
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
@@ -56,6 +57,7 @@ process_create_initd (const char *file_name) {
     ASSERT(fn_for_tok != NULL); // allocation check
     strlcpy(fn_for_tok, file_name, PGSIZE);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
+    printf("\n__debug :: %s\n", token);
 
 	/* Create a new thread to execute FILE_NAME. */
     /*** hyeRexx : first arg : file_name -> token ***/
@@ -74,6 +76,7 @@ initd (void *f_name) {
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
 
+    printf("\n__debug :: process init check\n");    
 	process_init ();
 
 	if (process_exec (f_name) < 0)
@@ -188,10 +191,12 @@ process_exec (void *f_name) {
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
 	/* We first kill the current context */
+    printf("\n__debug :: before cleanup\n");
 	process_cleanup ();
-	
+    printf("\n__debug :: cleanup fin.\n");
+	printf("present f_name : %s\n", (char *)f_name); // debug
 	/* And then load the binary */
-	success = load (file_name, &_if);
+	success = load (thread_current()->name, &_if);
 
 	/*** Jack ***/
 	/* Parsing file_name */ 
@@ -231,8 +236,7 @@ void argument_stack (char **parse, int count, struct intr_frame *_if)
 		argp_arr[now_arg] = now_loc;
 		strlcpy(now_loc, parse[now_arg], now_str_len);
 	}
-	now_loc &= (~7);					// word align
-	
+	now_loc = (uint64_t)now_loc & (~7);					// word align
 	now_loc = (char **)now_loc;			// 이후 연산(포인터 저장)을 위해 type casting
 	/* arg의 마지막 NULL로 */
 	now_loc--;
