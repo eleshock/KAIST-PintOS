@@ -173,6 +173,10 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
+	char **args_parsed = palloc_get_page(0);
+	char *save_ptr;
+	char *arg;
+	int arg_count;
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
@@ -185,9 +189,21 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
-
+	
 	/* And then load the binary */
 	success = load (file_name, &_if);
+
+	/*** Jack ***/
+	/* Parsing file_name */ 
+	arg_count = 0;
+	for (arg = strtok_r(f_name, " ", &save_ptr); arg != NULL; arg = strtok_r(NULL, " ", &save_ptr))
+		args_parsed[arg_count++] = arg;
+	
+	/*** Jack ***/
+	/* Set arguments to interrupt frame */
+	argument_stack(args_parsed, arg_count, &_if);
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	palloc_free_page(args_parsed);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
