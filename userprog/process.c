@@ -59,7 +59,7 @@ process_create_initd (const char *file_name) {
 
 	/* Create a new thread to execute FILE_NAME. */
     /*** hyeRexx : first arg : file_name -> token ***/
-	tid = thread_create (token, PRI_MAX, initd, fn_copy);
+	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
 		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
