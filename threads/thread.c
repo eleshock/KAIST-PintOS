@@ -208,6 +208,7 @@ void thread_tick(void)
 		
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
+    {
 		intr_yield_on_return();
         /*** hyeRexx ***/
         // Update curr thread priority
@@ -215,6 +216,7 @@ void thread_tick(void)
         { 
             mlfqs_priority(t);
         }
+    }
 }
 
 /* Prints thread statistics. */
@@ -279,6 +281,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
     /*** hyeRexx ***/
     ASSERT(t->status == THREAD_READY); // 언블락 잘 되었는지 확인
     /* 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기 */
+
     test_max_priority();
 
 	return tid;
@@ -378,6 +381,11 @@ void thread_yield(void)
 	struct thread *curr = thread_current();
 	enum intr_level old_level;
 
+    if(list_empty(&ready_list))
+    {
+        return;
+    }
+
 	ASSERT(!intr_context());
 
 	old_level = intr_disable();
@@ -420,15 +428,14 @@ void thread_sleep(int64_t awake_ticks)
  * 자신이 더 낮다면 yield */
 void test_max_priority(void)
 {
-	
-	if (list_empty(&ready_list)) { // ready_list가 비어있을 땐 그냥 리턴
+	if (list_empty(&ready_list)) // ready_list가 비어있을 땐 그냥 리턴
+    { 
 		return;
 	}
-
-	struct thread *curr = thread_current();
+    
 	struct thread *first_thread = list_entry(list_begin(&ready_list), struct thread, elem); // ready_list에서 우선순위가 가장 높은 thread
 	
-	if (curr->priority < first_thread->priority)   // 현재 thread의 우선순위가 더 낮다면
+	if (thread_get_priority() < first_thread->priority)   // 현재 thread의 우선순위가 더 낮다면
 	{
 		thread_yield(); 						   // 양보!
 	}
@@ -464,10 +471,16 @@ void thread_set_nice(int nice UNUSED) // JACK
 	// ASSERT(nice != NULL);
 
 	enum intr_level old_level;
+	struct thread *curr = thread_current();
 
 	old_level = intr_disable();
-	thread_current()->nice = nice;
+	curr->nice = nice;
 	intr_set_level(old_level);
+
+	// Jack - set nice에서 nice 변동 후 priority 재계산, 필요시 변동에 따른 scheduling 진행되도록 추가
+	mlfqs_recent_cpu(curr);
+	mlfqs_priority(curr);
+	test_max_priority();
 	
 	return;
 }
@@ -559,7 +572,6 @@ static void
 kernel_thread(thread_func *function, void *aux)
 {
 	ASSERT(function != NULL);
-
 	intr_enable(); /* The scheduler runs with interrupts off. */
 	function(aux); /* Execute the thread function. */
 	thread_exit(); /* If function() returns, kill the thread. */

@@ -44,3 +44,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	printf ("system call!\n");
 	thread_exit ();
 }
+
+/*** debugging genie ***/
+void 
+check_address(void *vaddr) {
+	if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
+    {
+	    exit(-1); // terminated
+    }
+}

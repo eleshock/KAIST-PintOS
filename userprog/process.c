@@ -42,6 +42,7 @@ tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
+    char *token, *save_ptr, *fn_for_tok; /*** hyeRexx ***/
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
@@ -50,10 +51,19 @@ process_create_initd (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
+    /*** hyeRexx ***/
+    fn_for_tok = palloc_get_page(0);
+    ASSERT(fn_for_tok != NULL); // allocation check
+    strlcpy(fn_for_tok, file_name, PGSIZE);
+    token = strtok_r(fn_for_tok, " ", &save_ptr);
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
-	if (tid == TID_ERROR)
+    /*** hyeRexx : first arg : file_name -> token ***/
+	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
+	if (tid == TID_ERROR) {
 		palloc_free_page (fn_copy);
+		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
+    }
 	return tid;
 }
 
@@ -63,7 +73,7 @@ initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-
+  
 	process_init ();
 
 	if (process_exec (f_name) < 0)
@@ -163,6 +173,10 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
+	char **args_parsed = palloc_get_page(0);
+	char *save_ptr;
+	char *arg;
+	int arg_count;
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
@@ -175,9 +189,20 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
-
 	/* And then load the binary */
-	success = load (file_name, &_if);
+	success = load (thread_current()->name, &_if);
+
+	/*** Jack ***/
+	/* Parsing file_name */ 
+	arg_count = 0;
+	for (arg = strtok_r(f_name, " ", &save_ptr); arg != NULL; arg = strtok_r(NULL, " ", &save_ptr))
+		args_parsed[arg_count++] = arg;
+	
+	/*** Jack ***/
+	/* Set arguments to interrupt frame */
+	argument_stack(args_parsed, arg_count, &_if);
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	palloc_free_page(args_parsed);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -187,6 +212,49 @@ process_exec (void *f_name) {
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
+}
+
+/*** GrilledSalmon ***/
+/* parse된 string(arg) 정보를 user_stack에 쌓아주는 함수 */
+void argument_stack (char **parse, int count, struct intr_frame *_if)
+{	
+	char *now_loc = _if->rsp;			// 스택에 넣어줄 위치
+	char **now_loc_casted;
+	int now_arg = count;
+	size_t now_str_len;
+	char *argp_arr[count];				// arg가 저장된 스택의 포인터 array
+
+	/* argv 값 넣어주기 */
+	while (now_arg-- > 0) {				// debugging할 때 참고
+		now_str_len = strlen(parse[now_arg]);
+		now_loc -= now_str_len + 1;
+		argp_arr[now_arg] = now_loc;
+		strlcpy(now_loc, parse[now_arg], now_str_len + 1);
+	}
+	memset((char *)((uint64_t)now_loc & (~7)), 0, (uint64_t)now_loc - (uint64_t)now_loc & (~7));
+	now_loc = (uint64_t)now_loc & (~7);					// word align
+	now_loc_casted = (char **)now_loc;			// 이후 연산(포인터 저장)을 위해 type casting - 새 변수로 casting
+
+	/* arg의 마지막 NULL로 */
+	now_loc_casted--;
+	*now_loc_casted = NULL;
+
+	now_arg = count;
+	while (now_arg-- > 0){
+		now_loc_casted--;
+		*now_loc_casted = argp_arr[now_arg];
+	}
+	
+	/* _if rdi, rsi 갱신 */
+	_if->R.rdi = (uint64_t)count;		// argc
+	_if->R.rsi = (uint64_t)now_loc_casted;		// argv
+
+	/* retrun address */
+	now_loc_casted--;
+	*now_loc_casted = NULL;
+
+	/* _if rsp 갱신 */
+	_if->rsp = (uint64_t)now_loc_casted;
 }
 
 
