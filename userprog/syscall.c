@@ -7,9 +7,17 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include <filesys/filesys.h>
+#include <filesys/file.h>
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+
+/*** Phase 1 ***/
+/*** Jack ***/
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+int filesize (int fd);
 
 /* System call.
  *
@@ -52,4 +60,25 @@ check_address(void *vaddr) {
     {
 	    exit(-1); // terminated
     }
+}
+
+/*** Jack ***/
+bool create (const char *file, unsigned initial_size)
+{
+	check_address(file);
+	return filesys_create(file, initial_size);
+}
+
+/*** Jack ***/
+bool remove (const char *file)
+{
+	check_address(file);
+	return filesys_remove(file);
+}
+
+/*** Jack ***/
+int filesize (int fd)
+{
+	struct file *f = &(thread_current()->fdt[fd]); // debugging genie
+	return file_length(f);
 }
