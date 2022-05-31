@@ -16,7 +16,7 @@
 #include "threads/init.h"	
 #include "userprog/process.h"
 #include "devices/input.h"			// for 'input_getc()'
-#include "kernel/console.h"         // for 'putbuf()'
+#include "kernel/stdio.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
