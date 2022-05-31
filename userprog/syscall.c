@@ -9,9 +9,8 @@
 #include "intrinsic.h"
 
 /*** Jack ***/
-#include <filesys/filesys.h>
-#include <filesys/file.h>
-#include <userprog/process.h>
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 /*** GrilledSalmon ***/
 #include "threads/init.h"	
