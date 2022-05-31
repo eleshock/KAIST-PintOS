@@ -11,6 +11,7 @@
 /*** Jack ***/
 #include <filesys/filesys.h>
 #include <filesys/file.h>
+#include <userprog/process.h>
 
 /*** GrilledSalmon ***/
 #include "threads/init.h"				
@@ -100,7 +101,8 @@ syscall_handler (struct intr_frame *f UNUSED)
         case SYS_WRITE : 
             break;
         
-        case SYS_SEEK :
+        case SYS_SEEK : // Jack
+            seek(f->R.rdi, f->R.rsi);
             break;
         
         case SYS_TELL :
@@ -142,8 +144,12 @@ bool remove (const char *file)
 /*** Jack ***/
 int filesize (int fd)
 {
-	struct file *f = &(thread_current()->fdt[fd]); // debugging genie
-	return file_length(f);
+    ASSERT(fd >= 0);
+
+	struct file *f = thread_current()->fdt[fd]; // debugging genie
+    ASSERT(f != NULL);
+
+	return file_length(f); 
 }
 
 /*** GrilledSalmon ***/
@@ -167,4 +173,18 @@ void exit (int status)
 	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
 
 	thread_exit();			/* 현재 쓰레드의 상태를 DYING 으로 바꾸고 schedule(다음 쓰레드에게 넘겨줌) */
+}
+
+/*** Jack ***/
+/* Change offset from origin to 'position' */
+void seek (int fd, unsigned position)
+{
+    ASSERT(fd >= 0);
+    ASSERT (position >= 0);
+
+    struct file* f = process_get_file(fd);
+    ASSERT (f != NULL);
+    
+    file_seek(f, position);
+    return;
 }
