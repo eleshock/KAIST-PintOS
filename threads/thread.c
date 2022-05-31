@@ -602,10 +602,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
 	
-	#ifdef USERPROG						/*** GrilledSalmon ***/
+#ifdef USERPROG						/*** GrilledSalmon ***/
 	t->fdt = palloc_get_page(PAL_ZERO);
 	t->fd_edge = 2;
-	#endif
+#endif
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
