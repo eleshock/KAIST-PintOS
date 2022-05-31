@@ -257,6 +257,12 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 
 	/* Initialize thread. */
 	init_thread(t, name, priority); // 들어온 priority로 초기화
+    
+#ifdef USERPROG						/*** GrilledSalmon ***/
+	t->fdt = palloc_get_page(PAL_ZERO);
+	t->fd_edge = 2;
+#endif
+
 	tid = t->tid = allocate_tid();
 
 	/* Call the kernel_thread if it scheduled.
@@ -601,11 +607,6 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
-	
-#ifdef USERPROG						/*** GrilledSalmon ***/
-	t->fdt = palloc_get_page(PAL_ZERO);
-	t->fd_edge = 2;
-#endif
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -965,16 +966,5 @@ void mlfqs_recent_cpu(struct thread *t)
 	t->recent_cpu = add_mixed(res_multi, t->nice); // add nice and change -- add_mixed 수정
 	
 	return;
-}
-
-/*** hyeRexx ***/
-int process_add_file(struct file *f)
-{
-    struct thread *curr_thread = thread_current(); // current thread
-    int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
-    ASSERT(new_fd > 1);
-    curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
-
-    return new_fd;
 }
 

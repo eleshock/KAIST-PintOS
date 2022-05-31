@@ -128,7 +128,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             close(f->R.rdi);
             break;        
     }
-	printf ("system call!\n");
+	// printf ("system call!\n");
     
 	do_iret(f);
 	NOT_REACHED();
@@ -185,7 +185,7 @@ void exit (int status)
 	struct thread *curr_thread = thread_current();
 	
 	/*** debugging genie : project IV :: msg ***/
-	printf("나 %s... 썩 좋은 삶이었다... (exit_status : %d)\n", curr_thread->name, status); 
+	printf("%s: exit(%d)\n", curr_thread->name, status); 
 
 	/*** Develope Genie ***/
 	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
@@ -197,7 +197,7 @@ void exit (int status)
 /*** debugging genie : do we need to check sysout, sysin? ***/
 int open(const char *file)
 {
-    check_address(file);                           // check vlidity of file ptr
+    check_address(file);                           // check validity of file ptr
     struct file *new_file = filesys_open(file);    // file open, and get file ptr
 
     if(!new_file) // fail
@@ -206,7 +206,7 @@ int open(const char *file)
     }
 
     int fd = process_add_file(new_file);
-
+    
     return fd; // return file descriptor for 'file'
 }
 

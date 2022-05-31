@@ -201,7 +201,7 @@ process_exec (void *f_name) {
 	/*** Jack ***/
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 	palloc_free_page(args_parsed);
 
 	/* If load failed, quit. */
@@ -267,11 +267,13 @@ void argument_stack (char **parse, int count, struct intr_frame *_if)
  *
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
+#include "devices/timer.h"
 int
 process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+    timer_sleep(100);
 	return -1;
 }
 
@@ -720,20 +722,34 @@ setup_stack (struct intr_frame *if_) {
 /*** Return file table pointer matched by fd in file descriptor table of current thread  ***/
 struct file *process_get_file(int fd)
 {
-	ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+    if(fd > 511 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+
 	return thread_current()->fdt[fd];
 }
 
 /*** Close file ***/
 void process_close_file (int fd)
 {
-	ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	
+	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+	if(fd > 511 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
 		return;
 
 	file_close(f);
 	thread_current()->fdt[fd] = NULL;
+}
+
+/*** hyeRexx ***/
+int process_add_file(struct file *f)
+{
+    struct thread *curr_thread = thread_current(); // current thread
+    int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
+    ASSERT(new_fd > 1);
+    curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
+
+    return new_fd;
 }
 #endif
