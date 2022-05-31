@@ -58,7 +58,7 @@ void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
     int64_t syscall_case = f->R.rax;
-    ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인
+    ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인 
     
 	switch (syscall_case)
     {
@@ -88,6 +88,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_OPEN :
+            f->R.rax = open(f->R.rdi); // returns new file descriptor
             break;
 
         case SYS_FILESIZE : /*** debugging genie : phase 2 ***/
@@ -107,6 +108,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_CLOSE :
+            close(f->R.rdi);
             break;        
     }
 	printf ("system call!\n");
@@ -167,4 +169,33 @@ void exit (int status)
 	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
 
 	thread_exit();			/* 현재 쓰레드의 상태를 DYING 으로 바꾸고 schedule(다음 쓰레드에게 넘겨줌) */
+}
+
+/*** hyeRexx ***/
+/*** debugging genie : do we need to check sysout, sysin? ***/
+int open(const char *file)
+{
+    check_address(file);                           // check vlidity of file ptr
+    struct file *new_file = filesys_open(file);    // file open, and get file ptr
+
+    if(!new_file) // fail
+    {
+        return -1;
+    }
+
+    int fd = process_add_file(new_file);
+
+    return fd; // return file descriptor for 'file'
+}
+
+/*** hyeRexx ***/
+void close(int fd)
+{
+    ASSERT(fd > 1); // fd can not be 0(stdin) or 1(stdout) or negative
+    struct thread *curr_thread = thread_current();
+    struct file *curr_file = curr_thread->fdt[fd];  // get file ptr
+    curr_thread->fdt[fd] = NULL;
+    file_close(curr_file);  // inode close and free file
+
+    return;
 }
