@@ -37,12 +37,66 @@ syscall_init (void) {
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
+/*** hyeRexx ***/
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
-	// TODO: Your implementation goes here.
+    int64_t syscall_case = f->R.rax;
+    ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인
+    
+	switch (syscall_case)
+    {
+        case SYS_HALT :
+            halt();
+            break;
+        
+        case SYS_EXIT :
+            exit(f->R.rdi);
+            break;
+        
+        case SYS_FORK : 
+            break;
+        
+        case SYS_EXEC :
+            break;
+        
+        case SYS_WAIT :
+            break;
+        
+        case SYS_CREATE : 
+            f->R.rax = create(f->R.rdi, f->R.rsi);
+            break;
+
+        case SYS_REMOVE :
+            f->R.rax = remove(f->R.rdi);
+            break;
+        
+        case SYS_OPEN :
+            break;
+
+        case SYS_FILESIZE : /*** debugging genie : phase 2 ***/
+            f->R.rax = filesize(f->R.rdi);
+            break;
+
+        case SYS_READ :
+            break;
+        
+        case SYS_WRITE : 
+            break;
+        
+        case SYS_SEEK :
+            break;
+        
+        case SYS_TELL :
+            break;
+        
+        case SYS_CLOSE :
+            break;        
+    }
 	printf ("system call!\n");
-	thread_exit ();
+    
+	do_iret(f);
+	NOT_REACHED();
 }
 
 /*** debugging genie ***/
