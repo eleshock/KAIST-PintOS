@@ -14,7 +14,10 @@
 #include <userprog/process.h>
 
 /*** GrilledSalmon ***/
-#include "threads/init.h"				
+#include "threads/init.h"	
+#include "userprog/process.h"
+#include "devices/input.h"			// for 'input_getc()'
+#include "kernel/stdio.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -27,6 +30,12 @@ bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 int filesize (int fd);
 void seek (int fd, unsigned position);
+
+int read (int fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
+int write (int fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
+unsigned tell (int fd);                             /*** GrilledSalmon ***/
+
+static struct lock filesys_lock;                    /*** GrilledSalmon ***/
 
 /* System call.
  *
@@ -42,7 +51,10 @@ void seek (int fd, unsigned position);
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
 void
-syscall_init (void) {
+syscall_init (void)
+{
+    lock_init(&filesys_lock);       /*** GrilledSalmon ***/
+
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -97,9 +109,11 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
 
         case SYS_READ :
+            f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
         
-        case SYS_WRITE : 
+        case SYS_WRITE :
+            f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
         
         case SYS_SEEK : // Jack
@@ -107,6 +121,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_TELL :
+            f->R.rax = tell(f->R.rdi);
             break;
         
         case SYS_CLOSE :
@@ -189,4 +204,76 @@ void seek (int fd, unsigned position)
     
     file_seek(f, position);
     return;
+}
+
+/*** GrilledSalmon ***/
+int read (int fd, void *buffer, unsigned size)
+{
+    check_address(buffer);
+    
+    uint64_t read_len = 0;              // 읽어낸 길이
+
+	if (fd == 0) { 			            /* fd로 stdin이 들어온 경우 */
+        
+        /*** extra할 때 수정된대유 ***/
+
+        char *buffer_cursor = buffer;
+        lock_acquire(&filesys_lock);    // debugging genie
+        while (read_len < size)
+        {
+            *buffer_cursor++ = input_getc();
+            read_len++;
+        }
+        *buffer_cursor = '\0';
+        lock_release(&filesys_lock);
+
+        return read_len;
+	}
+
+	struct file *now_file = process_get_file(fd);
+
+    if (now_file == NULL || fd == 1){   // fd로 stdout이 들어왔거나 file이 없는 경우
+        return -1;
+    }
+
+    lock_acquire(&filesys_lock);
+    read_len = file_read(now_file, buffer, size);
+    lock_release(&filesys_lock);
+	
+    return read_len;
+}
+
+/*** GrilledSalmon ***/
+int write (int fd, void *buffer, unsigned size)
+{
+    check_address(buffer);
+
+    if (fd == 1) {                      // fd == stdout인 경우
+        lock_acquire(&filesys_lock);
+        putbuf(buffer, size);
+        lock_release(&filesys_lock);
+        return size;
+    }
+
+    struct file *now_file = process_get_file(fd);
+
+    if (now_file == NULL || fd == 0){   // fd로 stdin이 들어왔거나 file이 없는 경우
+        return -1;
+    }
+
+    lock_acquire(&filesys_lock);
+    uint64_t read_len = file_write(now_file, buffer, size);
+    lock_release(&filesys_lock);
+
+    return read_len;
+}
+
+/*** GrilledSalmon ***/
+unsigned tell (int fd)
+{
+    struct file *now_file = process_get_file(fd);
+    if (now_file == NULL) {
+        return -1;
+    }
+    return file_tell(now_file);
 }
