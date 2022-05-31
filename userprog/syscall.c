@@ -235,7 +235,7 @@ int write (int fd, void *buffer, unsigned size)
 
     struct file *now_file = process_get_file(fd);
 
-    if (now_file == NULL || fd == 1){   // fd로 stdin이 들어왔거나 file이 없는 경우
+    if (now_file == NULL || fd == 0){   // fd로 stdin이 들어왔거나 file이 없는 경우
         return -1;
     }
 
