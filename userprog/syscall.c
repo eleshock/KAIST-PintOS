@@ -70,8 +70,9 @@ void halt (void)
 void exit (int status)
 {	
 	struct thread *curr_thread = thread_current();
-
-	printf("나 %s... 썩 좋은 삶이었다... (exit_status : %d)\n", curr_thread->name);
+	
+	/*** debugging genie : project IV :: msg ***/
+	printf("나 %s... 썩 좋은 삶이었다... (exit_status : %d)\n", curr_thread->name, status); 
 
 	/*** Develope Genie ***/
 	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
