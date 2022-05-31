@@ -55,7 +55,8 @@ syscall_init (void) {
 /*** hyeRexx ***/
 /* The main system call interface */
 void
-syscall_handler (struct intr_frame *f UNUSED) {
+syscall_handler (struct intr_frame *f UNUSED) 
+{
     int64_t syscall_case = f->R.rax;
     ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인
     
@@ -116,7 +117,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 /*** debugging genie ***/
 void 
-check_address(void *vaddr) {
+check_address(void *vaddr) 
+{
 	if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
     {
 	    exit(-1); // terminated
@@ -142,6 +144,7 @@ int filesize (int fd)
 {
 	struct file *f = &(thread_current()->fdt[fd]); // debugging genie
 	return file_length(f);
+}
 
 /*** GrilledSalmon ***/
 /* Power off the Pintos system.
