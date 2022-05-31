@@ -112,6 +112,11 @@ struct thread
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
+
+	/*** team 8 ***/
+	struct file **fdt;				// file descriptor table
+	int fd_edge;					// file descriptor edge num
+	
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */

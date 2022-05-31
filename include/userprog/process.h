@@ -12,3 +12,12 @@ void process_activate (struct thread *next);
 void argument_stack (char **parse, int count, struct intr_frame *_if);        /*** Grilled Salmon ***/
 
 #endif /* userprog/process.h */
+
+#ifdef USERPROG
+
+/*** team 8 ***/
+int process_add_file(struct file *f);
+struct file *process_get_file(int fd);
+void process_close_file(int fd);
+
+#endif //userprog
