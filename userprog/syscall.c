@@ -26,6 +26,7 @@ void exit (int status);					/*** GrilledSalmon ***/
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 int filesize (int fd);
+void seek (int fd, unsigned position);
 
 /* System call.
  *
