@@ -9,8 +9,8 @@
 #include "intrinsic.h"
 
 /*** Jack ***/
-#include <filesys/filesys.h>
-#include <filesys/file.h>
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 /*** GrilledSalmon ***/
 #include "threads/init.h"	
@@ -28,6 +28,7 @@ void exit (int status);					/*** GrilledSalmon ***/
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 int filesize (int fd);
+void seek (int fd, unsigned position);
 
 int read (int fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
 int write (int fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
@@ -114,7 +115,8 @@ syscall_handler (struct intr_frame *f UNUSED)
             f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
             break;
         
-        case SYS_SEEK :
+        case SYS_SEEK : // Jack
+            seek(f->R.rdi, f->R.rsi);
             break;
         
         case SYS_TELL :
@@ -157,8 +159,13 @@ bool remove (const char *file)
 /*** Jack ***/
 int filesize (int fd)
 {
-	struct file *f = &(thread_current()->fdt[fd]); // debugging genie
-	return file_length(f);
+    ASSERT(fd >= 0); // debugging genie : fd가 음수인 경우 종료해버릴건지, 아니면 -1을 반환해줄지
+
+	struct file *f = process_get_file(fd);
+    if (f == NULL)
+        return -1;
+
+	return file_length(f); 
 }
 
 /*** GrilledSalmon ***/
@@ -182,6 +189,20 @@ void exit (int status)
 	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
 
 	thread_exit();			/* 현재 쓰레드의 상태를 DYING 으로 바꾸고 schedule(다음 쓰레드에게 넘겨줌) */
+}
+
+/*** Jack ***/
+/* Change offset from origin to 'position' */
+void seek (int fd, unsigned position)
+{
+    ASSERT(fd >= 0);
+    ASSERT (position >= 0);
+
+    struct file* f = process_get_file(fd);
+    ASSERT (f != NULL);
+    
+    file_seek(f, position);
+    return;
 }
 
 /*** GrilledSalmon ***/

@@ -284,6 +284,15 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
+	/*** Jack ***/
+	/*** Cleanup resources related to file system ***/
+	int curr_fd_edge;
+	struct file *curr_f;
+	for (curr_fd_edge = thread_current()->fd_edge - 1; curr_fd_edge >= 2; curr_fd_edge--)
+		process_close_file(curr_fd_edge);
+	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
+	thread_current()->fdt = NULL;				// 명시적 NULL
+
 	process_cleanup ();
 }
 
@@ -705,3 +714,26 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 #endif /* VM */
+
+#ifdef USERPROG
+/*** Jack ***/
+/*** Return file table pointer matched by fd in file descriptor table of current thread  ***/
+struct file *process_get_file(int fd)
+{
+	ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+	return thread_current()->fdt[fd];
+}
+
+/*** Close file ***/
+void process_close_file (int fd)
+{
+	ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+	
+	struct file *f = thread_current()->fdt[fd];
+	if (f == NULL)
+		return;
+
+	file_close(f);
+	thread_current()->fdt[fd] = NULL;
+}
+#endif
