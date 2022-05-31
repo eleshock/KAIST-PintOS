@@ -147,8 +147,9 @@ int filesize (int fd)
 {
     ASSERT(fd >= 0);
 
-	struct file *f = thread_current()->fdt[fd]; // debugging genie
-    ASSERT(f != NULL);
+	struct file *f = process_get_file(fd);
+    if (f == NULL)
+        return -1;
 
 	return file_length(f); 
 }
