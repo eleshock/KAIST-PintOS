@@ -7,12 +7,24 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
-#include "threads/init.h"				/*** GrilledSalmon ***/
+
+/*** Jack ***/
+#include <filesys/filesys.h>
+#include <filesys/file.h>
+
+/*** GrilledSalmon ***/
+#include "threads/init.h"				
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 void halt (void);						/*** GrilledSalmon ***/
 void exit (int status);					/*** GrilledSalmon ***/
+
+/*** Phase 1 ***/
+/*** Jack ***/
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+int filesize (int fd);
 
 /* System call.
  *
@@ -43,7 +55,8 @@ syscall_init (void) {
 /*** hyeRexx ***/
 /* The main system call interface */
 void
-syscall_handler (struct intr_frame *f UNUSED) {
+syscall_handler (struct intr_frame *f UNUSED) 
+{
     int64_t syscall_case = f->R.rax;
     ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인
     
@@ -104,11 +117,33 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 /*** debugging genie ***/
 void 
-check_address(void *vaddr) {
+check_address(void *vaddr) 
+{
 	if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
     {
 	    exit(-1); // terminated
     }
+}
+
+/*** Jack ***/
+bool create (const char *file, unsigned initial_size)
+{
+	check_address(file);
+	return filesys_create(file, initial_size);
+}
+
+/*** Jack ***/
+bool remove (const char *file)
+{
+	check_address(file);
+	return filesys_remove(file);
+}
+
+/*** Jack ***/
+int filesize (int fd)
+{
+	struct file *f = &(thread_current()->fdt[fd]); // debugging genie
+	return file_length(f);
 }
 
 /*** GrilledSalmon ***/
