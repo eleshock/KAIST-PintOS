@@ -145,7 +145,7 @@ bool remove (const char *file)
 /*** Jack ***/
 int filesize (int fd)
 {
-    ASSERT(fd >= 0);
+    ASSERT(fd >= 0); // debugging genie : fd가 음수인 경우 종료해버릴건지, 아니면 -1을 반환해줄지
 
 	struct file *f = process_get_file(fd);
     if (f == NULL)

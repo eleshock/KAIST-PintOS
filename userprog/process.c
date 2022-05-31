@@ -720,14 +720,14 @@ setup_stack (struct intr_frame *if_) {
 /*** Return file table pointer matched by fd in file descriptor table of current thread  ***/
 struct file *process_get_file(int fd)
 {
-	ASSERT (fd >= 0);
+	ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
 	return thread_current()->fdt[fd];
 }
 
 /*** Close file ***/
 void process_close_file (int fd)
 {
-	ASSERT (fd >= 0);
+	ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
 	
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
