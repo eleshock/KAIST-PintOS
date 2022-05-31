@@ -7,9 +7,12 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "threads/init.h"				/*** GrilledSalmon ***/
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+void halt (void);						/*** GrilledSalmon ***/
+void exit (int status);					/*** GrilledSalmon ***/
 
 /* System call.
  *
@@ -106,4 +109,27 @@ check_address(void *vaddr) {
     {
 	    exit(-1); // terminated
     }
+}
+
+/*** GrilledSalmon ***/
+/* Power off the Pintos system.
+ * The user will barely use this syscall function. */
+void halt (void)
+{
+	power_off();			/* Power off */
+}
+
+/*** GrilledSalmon ***/
+/* Process exit */
+void exit (int status)
+{	
+	struct thread *curr_thread = thread_current();
+	
+	/*** debugging genie : project IV :: msg ***/
+	printf("나 %s... 썩 좋은 삶이었다... (exit_status : %d)\n", curr_thread->name, status); 
+
+	/*** Develope Genie ***/
+	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
+
+	thread_exit();			/* 현재 쓰레드의 상태를 DYING 으로 바꾸고 schedule(다음 쓰레드에게 넘겨줌) */
 }
