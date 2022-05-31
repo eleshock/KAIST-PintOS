@@ -588,7 +588,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	ASSERT(name != NULL);
  
 	memset(t, 0, sizeof *t);
-	t->status = THREAD_BLOCKED;
+	t->status = THREAD_BLOCKED; 
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
@@ -965,6 +965,16 @@ void mlfqs_recent_cpu(struct thread *t)
 	t->recent_cpu = add_mixed(res_multi, t->nice); // add nice and change -- add_mixed 수정
 	
 	return;
+}
 
+/*** hyeRexx ***/
+int process_add_file(struct file *f)
+{
+    struct thread *curr_thread = thread_current(); // current thread
+    int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
+    ASSERT(new_fd > 1);
+    curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
+
+    return new_fd;
 }
 
