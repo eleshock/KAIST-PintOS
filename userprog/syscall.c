@@ -213,12 +213,7 @@ int open(const char *file)
 /*** hyeRexx ***/
 void close(int fd)
 {
-    ASSERT(fd > 1); // fd can not be 0(stdin) or 1(stdout) or negative
-    struct thread *curr_thread = thread_current();
-    struct file *curr_file = curr_thread->fdt[fd];  // get file ptr
-    curr_thread->fdt[fd] = NULL;
-    file_close(curr_file);  // inode close and free file
-
+    process_close_file(fd);
     return;
 }
 
