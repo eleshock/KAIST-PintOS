@@ -113,11 +113,20 @@ struct thread
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */
 
-	/*** team 8 ***/
+	/*** team 8 : phase 2 ***/
 	struct file **fdt;				// file descriptor table
 	int fd_edge;					// file descriptor edge num
-	
+    
+    /*** team 8 : phase 3 ***/
+	struct thread *parent;
+    struct list child_list;
+    struct list_elem c_elem;
+    int fork_flag;
+    struct semaphore fork_sema;
+    int exit_status;
+    struct semaphore exit_sema;
 #endif 
+
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
