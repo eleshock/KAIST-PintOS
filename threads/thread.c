@@ -368,6 +368,7 @@ tid_t thread_tid(void)
 void thread_exit(void)
 {
 	ASSERT(!intr_context());
+	struct thread *curr = thread_current();
 
 #ifdef USERPROG
 	process_exit();
@@ -376,7 +377,13 @@ void thread_exit(void)
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable();
+#ifdef USERPROG	
+	curr->status = THREAD_DYING;
+	sema_up(&(curr->exit_sema));				// debugging genie : sema up하는 시점이 애매하여 확인필요
+	schedule();
+#else
 	do_schedule(THREAD_DYING);
+#endif
 	NOT_REACHED();
 }
 
@@ -733,12 +740,17 @@ do_schedule(int status)
 {
 	ASSERT(intr_get_level() == INTR_OFF);
 	ASSERT(thread_current()->status == THREAD_RUNNING);
+
+#ifndef USERPROG
 	while (!list_empty(&destruction_req))
 	{
+
 		struct thread *victim =
 			list_entry(list_pop_front(&destruction_req), struct thread, elem);
 		palloc_free_page(victim);
 	}
+#endif
+
 	thread_current()->status = status;
 	schedule();
 }
@@ -772,13 +784,14 @@ schedule(void)
 		   currently used bye the stack.
 		   The real destruction logic will be called at the beginning of the
 		   schedule(). */
+#ifndef USERPROG // Jack
 		if (curr && curr->status == THREAD_DYING && curr != initial_thread)
 		{
 			ASSERT(curr != next);
 			list_remove(&curr->i_elem); // Jack : 쓰레드 루틴 끝나면 총괄 리스트에서도 빼줌.
 			list_push_back(&destruction_req, &curr->elem);
 		}
-
+#endif
 		/* Before switching the thread, we first save the information
 		 * of current running. */
 		thread_launch(next);

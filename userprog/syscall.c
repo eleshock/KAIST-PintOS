@@ -34,6 +34,10 @@ int read (int fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
 int write (int fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
 unsigned tell (int fd);                             /*** GrilledSalmon ***/
 
+typedef int pid_t;
+int wait (pid_t pid);                               /*** Jack ***/
+int exec (const char *cmd_line);                    /*** Jack ***/
+
 static struct lock filesys_lock;                    /*** GrilledSalmon ***/
 
 /* System call.
@@ -87,9 +91,11 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_EXEC :
+            f->R.rax = exec(f->R.rdi);
             break;
         
         case SYS_WAIT :
+            f->R.rax = wait(f->R.rdi);
             break;
         
         case SYS_CREATE : 
@@ -134,7 +140,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 	NOT_REACHED();
 }
 
-/*** debugging genie ***/
 void 
 check_address(void *vaddr) 
 {
@@ -161,8 +166,6 @@ bool remove (const char *file)
 /*** Jack ***/
 int filesize (int fd)
 {
-    ASSERT(fd >= 0); // debugging genie : fd가 음수인 경우 종료해버릴건지, 아니면 -1을 반환해줄지
-
 	struct file *f = process_get_file(fd);
     if (f == NULL)
         return -1;
@@ -184,11 +187,13 @@ void exit (int status)
 {	
 	struct thread *curr_thread = thread_current();
 	
-	/*** debugging genie : project IV :: msg ***/
-	printf("%s: exit(%d)\n", curr_thread->name, status); 
+#ifdef USERPROG
+    curr_thread->exit_status = status;                  /*** Jack ***/
+#endif
 
 	/*** Develope Genie ***/
 	/* 자신을 기다리는 부모가 있는 경우 status와 함께 신호 보내줘야 함!! */
+    /* thread_exit -> process_exit 에서 sema up 해주도록 조치함 */
 
 	thread_exit();			/* 현재 쓰레드의 상태를 DYING 으로 바꾸고 schedule(다음 쓰레드에게 넘겨줌) */
 }
@@ -301,4 +306,17 @@ unsigned tell (int fd)
         return -1;
     }
     return file_tell(now_file);
+}
+
+/*** Jack ***/
+int wait (pid_t pid)
+{
+    return process_wait(pid);
+}
+
+/*** Jack ***/
+int exec (const char *cmd_line)
+{
+    check_address(cmd_line);
+    return process_exec(cmd_line);
 }
