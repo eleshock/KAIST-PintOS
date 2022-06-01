@@ -271,6 +271,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
      *** hyeRexx ***
      * RSI(Extended Source Index) / RDI(Extended Destination Index)
      * 각 메모리 출발지와 목적지를 나타냄. 고속 메모리 전송 명령어에서 사용
+     * 그러나 여기에서는 단순 arguments.
      * 이 부분은 인터럽트 초기화인듯..? */
 	t->tf.rip = (uintptr_t)kernel_thread;
 	t->tf.R.rdi = (uint64_t)function;

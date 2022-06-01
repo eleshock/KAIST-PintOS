@@ -109,9 +109,9 @@ struct thread
     int recent_cpu;                 // recent cpu consumption
     struct list_elem i_elem;        // integtated list elements
 
-#ifdef USERPROG
+// #ifdef USERPROG
 	/* Owned by userprog/process.c. */
-	uint64_t *pml4; /* Page map level 4 */
+	uint64_t *pml4; /* Page map level 4 */ /* Page Table! */
 
 	/*** team 8 : phase 2 ***/
 	struct file **fdt;				// file descriptor table
@@ -125,7 +125,7 @@ struct thread
     struct semaphore fork_sema;
     int exit_status;
     struct semaphore exit_sema;
-#endif 
+// #endif 
 
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */

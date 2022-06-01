@@ -18,6 +18,9 @@
 #include "devices/input.h"			// for 'input_getc()'
 #include "kernel/stdio.h"
 
+/*** hyeRexx ***/
+#include "user/syscall.h"
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 void halt (void);						/*** GrilledSalmon ***/
@@ -33,6 +36,9 @@ void seek (int fd, unsigned position);
 int read (int fd, void *buffer, unsigned size); 	/*** GrilledSalmon ***/
 int write (int fd, void *buffer, unsigned size);    /*** GrilledSalmon ***/
 unsigned tell (int fd);                             /*** GrilledSalmon ***/
+
+/*** hyeRexx : phase 3 ***/
+pid_t fork(const char *thread_name, struct intr_frame *intr_f);
 
 static struct lock filesys_lock;                    /*** GrilledSalmon ***/
 
@@ -84,6 +90,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_FORK : 
+            f->rax = fork(f->R.rdi, f);
             break;
         
         case SYS_EXEC :
@@ -301,4 +308,14 @@ unsigned tell (int fd)
         return -1;
     }
     return file_tell(now_file);
+}
+
+/*** hyeRexx ***/
+pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 추가함
+{
+    check_address(thread_name);
+    check_address(intr_f);
+
+    tid_t child = process_fork(thread_name, intr_f);
+    return (child == TID_ERROR) ? TID_ERROR : child; 
 }
