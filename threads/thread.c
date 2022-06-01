@@ -261,6 +261,11 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 #ifdef USERPROG						/*** GrilledSalmon ***/
 	t->fdt = palloc_get_page(PAL_ZERO);
 	t->fd_edge = 2;
+	
+	sema_init(t->fork_sema);		/*** GrilledSalmon ***/
+	sema_init(t->exit_sema);
+	t->parent = thread_current();
+	list_push_back(&t->parent->child_list, &t->c_elem);
 #endif
 
 	tid = t->tid = allocate_tid();
@@ -607,6 +612,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
+	list_init(&t->child_list);				/*** GrilledSalmon ***/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
