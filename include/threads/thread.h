@@ -108,7 +108,7 @@ struct thread
     int nice;                       // nice value
     int recent_cpu;                 // recent cpu consumption
     struct list_elem i_elem;        // integtated list elements
-
+	
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4; /* Page map level 4 */ /* Page Table! */
@@ -126,6 +126,9 @@ struct thread
     int exit_status;
     struct semaphore exit_sema;
     int is_exit; // likes thread_status
+
+	/*** Deny Write on Executables ***/
+	struct file *running_file;
 #endif 
 
 #ifdef VM

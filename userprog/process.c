@@ -10,6 +10,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h" // Jack
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -234,7 +235,7 @@ process_exec (void *f_name) {
 	/* If load failed, quit. */
 	if (!success)
     {
-	    palloc_free_page (file_name);
+	    // palloc_free_page (file_name);
 	    // palloc_free_page(args_parsed);
 		return -1;
     }
@@ -336,7 +337,16 @@ process_exit (void) {
 	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
 	thread_current()->fdt = NULL;				// 명시적 NULL
 
+	/* Cleanup resources releated to virtual memory */
 	process_cleanup ();
+
+	/* Close running file of current thread */
+	if (curr->running_file)
+	{
+		file_lock_acquire(curr->running_file);
+		file_close(curr->running_file);
+		file_lock_release(curr->running_file);
+	}
 }
 
 /* Free the current process's resources. */
@@ -456,19 +466,25 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	// /* Open executable file. */
-	// file = filesys_open (file_name);
-	// if (file == NULL) {  
-	// 	printf ("load: %s: open failed\n", file_name);
-	// 	goto done;
-	// }
-
-    /*** debugging genie ***/
 	file = filesys_open (file_name);
 	if (file == NULL) {  
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
+	/*** Jack ***/
+	/* renew running file of current thread */
+	if (t->running_file)
+	{
+		file_lock_acquire(t->running_file);
+		file_close(t->running_file);
+		file_lock_release(t->running_file);
+	}
+	file_lock_acquire(file);
+	t->running_file = file;
+	file_deny_write(file);
+	file_lock_release(file);
+	
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -548,7 +564,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
+	// file_close (file); -> 실행 중에 파일 수정 방지 위해 file_deny_write후 프로그램 종료시 파일 close위해 현재 라인 주석처리
 	return success;
 }
 
