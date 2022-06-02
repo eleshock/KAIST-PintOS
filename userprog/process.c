@@ -86,8 +86,17 @@ initd (void *f_name) {
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
-	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+    /*** hyeRexx ***/
+    /* replace 4th argument : thread_current() to if_ */
+	tid_t child = thread_create (name, PRI_DEFAULT, __do_fork, if_);
+    if(child == TID_ERROR) return TID_ERROR;
+    struct thread *child_t = get_child_process(child);
+
+    sema_down(&child_t->fork_sema);
+    
+    /*** error check ***/    
+    if(child_t->fork_flag == TID_ERROR) return TID_ERROR;
+    return child;
 }
 
 #ifndef VM
@@ -102,21 +111,28 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
+	if (is_kern_pte(pte)) {
+		return true; /*** debugging genie ***/
+	}
 
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
+	newpage = palloc_get_page(PAL_USER);
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
+	memcpy(newpage, parent_page, PGSIZE);
+	writable = is_writable(pte);
 
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: if fail to insert page, do error handling. */
+		return false;
 	}
 	return true;
 }
@@ -126,45 +142,57 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  * Hint) parent->tf does not hold the userland context of the process.
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
+/*** hyeRexx ***/
 static void
 __do_fork (void *aux) {
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
-	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct thread *curr_thread = thread_current ();
+    /*** hyeRexx ***/
+	struct thread *parent = curr_thread->parent; // perent thread implecated
+	struct intr_frame *parent_if = aux; // parent aux implecated
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
 	/* 2. Duplicate PT */
-	current->pml4 = pml4_create();
-	if (current->pml4 == NULL)
+	curr_thread->pml4 = pml4_create();
+	if (curr_thread->pml4 == NULL)
 		goto error;
 
-	process_activate (current);
+	process_activate (curr_thread);
 #ifdef VM
-	supplemental_page_table_init (&current->spt);
-	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
+	supplemental_page_table_init (&curr_thread->spt);
+	if (!supplemental_page_table_copy (&curr_thread->spt, &parent->spt))
 		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
-	/* TODO: Your code goes here.
-	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
-	 * TODO:       in include/filesys/file.h. Note that parent should not return
-	 * TODO:       from the fork() until this function successfully duplicates
-	 * TODO:       the resources of parent.*/
+    /*** hyeRexx : duplicate files ***/
+    for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
+    {
+   	if(parent->fdt[fd] == NULL) continue;
+        curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
+    }
+    
+    ASSERT(curr_thread->fd_edge == parent->fd_edge);
+    sema_up(&curr_thread->fork_sema);
 
 	process_init ();
+    if_.R.rax = 0; // return to child's fork
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
-		do_iret (&if_);
+    {
+		curr_thread->fork_flag = 0;
+        do_iret (&if_);
+    }
 error:
+    sema_up(&curr_thread->fork_sema);
+    curr_thread->fork_flag = -1;
+    curr_thread->exit_status = -1;
 	thread_exit ();
 }
 
@@ -187,27 +215,29 @@ process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	/* We first kill the current context */
-	process_cleanup ();
-	/* And then load the binary */
-	success = load (thread_current()->name, &_if);
-
 	/*** Jack ***/
 	/* Parsing file_name */ 
 	arg_count = 0;
 	for (arg = strtok_r(f_name, " ", &save_ptr); arg != NULL; arg = strtok_r(NULL, " ", &save_ptr))
 		args_parsed[arg_count++] = arg;
-	
+
+	/* We first kill the current context */
+	process_cleanup ();
+	/* And then load the binary */
+	success = load (args_parsed[0], &_if);
+
 	/*** Jack ***/
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-	palloc_free_page(args_parsed);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* If load failed, quit. */
-	palloc_free_page (file_name);
 	if (!success)
+    {
+	    palloc_free_page (file_name);
+	    // palloc_free_page(args_parsed);
 		return -1;
+    }
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -269,20 +299,42 @@ void argument_stack (char **parse, int count, struct intr_frame *_if)
  * does nothing. */
 int
 process_wait (tid_t child_tid UNUSED) {
-	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
-	 * XXX:       to add infinite loop here before
-	 * XXX:       implementing the process_wait. */
-	return -1;
+	/*** Jack ***/
+	struct thread *child = get_child_process(child_tid);
+	int ret_exit_status=NULL;
+	if (child == NULL)
+		return -1;
+
+	// debugging genie : 사실, 이미 자식이 죽어있다면 exit_sema를 1로 올려주었을거라 확인문 없이 sema down만 해도 문제는 없을듯함.
+	while (!child->is_exit)		
+		sema_down(&(child->exit_sema));
+	
+	ret_exit_status = child->exit_status;
+	remove_child_process(child);
+
+	return ret_exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-	/* TODO: Your code goes here.
-	 * TODO: Implement process termination message (see
-	 * TODO: project2/process_termination.html).
-	 * TODO: We recommend you to implement process resource cleanup here. */
+
+/*** debugging genie ***/
+
+	/*** debugging genie : project IV :: msg ***/
+    /*** check whether curr is user or kernel, print msg when it is user. ***/
+    if(curr->pml4 != NULL)
+	    printf("%s: exit(%d)\n", curr->name, curr->exit_status); 
+
+	/*** Jack ***/
+	/*** Cleanup resources related to file system ***/
+	int curr_fd_edge;
+	struct file *curr_f;
+	for (curr_fd_edge = thread_current()->fd_edge - 1; curr_fd_edge >= 2; curr_fd_edge--)
+		process_close_file(curr_fd_edge);
+	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
+	thread_current()->fdt = NULL;				// 명시적 NULL
 
 	process_cleanup ();
 }
@@ -403,9 +455,16 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
-	/* Open executable file. */
+	// /* Open executable file. */
+	// file = filesys_open (file_name);
+	// if (file == NULL) {  
+	// 	printf ("load: %s: open failed\n", file_name);
+	// 	goto done;
+	// }
+
+    /*** debugging genie ***/
 	file = filesys_open (file_name);
-	if (file == NULL) {
+	if (file == NULL) {  
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
@@ -705,3 +764,76 @@ setup_stack (struct intr_frame *if_) {
 	return success;
 }
 #endif /* VM */
+
+#ifdef USERPROG
+/*** Jack ***/
+/*** Return file table pointer matched by fd in file descriptor table of current thread  ***/
+struct file *process_get_file(int fd)
+{
+	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+    if(fd > 511 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+
+	return thread_current()->fdt[fd];
+}
+
+/*** Close file ***/
+void process_close_file (int fd)
+{
+	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
+	if(fd > 511 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+
+	struct file *f = thread_current()->fdt[fd];
+	if (f == NULL)
+		return;
+
+	file_close(f);
+	thread_current()->fdt[fd] = NULL;
+}
+
+/*** hyeRexx ***/
+int process_add_file(struct file *f)
+{
+    struct thread *curr_thread = thread_current(); // current thread
+    int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
+    ASSERT(new_fd > 1);
+    curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
+
+    return new_fd;
+}
+
+/*** Jack ***/
+/* Return child process pointer who is having 'tid' in child list */
+struct thread *get_child_process (int pid)
+{
+	struct list *child_list = &(thread_current()->child_list);
+	struct thread *curr_thread;
+	struct list_elem *curr_elem;
+	struct thread *ret_thread = NULL;
+
+	for (curr_elem = list_begin(child_list); curr_elem != list_tail(child_list); curr_elem = list_next(curr_elem))
+	{
+		curr_thread = list_entry(curr_elem, struct thread, c_elem);
+		if (curr_thread->tid == pid)
+		{
+			ret_thread = curr_thread;
+			break;
+		}
+	}
+	return ret_thread;
+}
+
+/*** Jack ***/
+/* Remove child process from child list of its parent and Free its memory */
+void remove_child_process(struct thread *cp)
+{
+	ASSERT (cp != NULL);
+	ASSERT (cp->parent == thread_current());
+	ASSERT (!list_empty(&(thread_current()->child_list)))
+	ASSERT (cp->c_elem.next != NULL || cp->c_elem.prev != NULL)
+	
+	list_remove(&(cp->c_elem));
+	palloc_free_page(cp);
+	return;
+}
+
+#endif // USERPROG
