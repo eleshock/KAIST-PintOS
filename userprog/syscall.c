@@ -18,9 +18,6 @@
 #include "devices/input.h"			// for 'input_getc()'
 #include "kernel/stdio.h"
 
-/*** hyeRexx ***/
-#include "user/syscall.h"
-
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 void halt (void);						/*** GrilledSalmon ***/
