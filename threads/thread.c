@@ -261,6 +261,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 #ifdef USERPROG						/*** GrilledSalmon ***/
 	t->fdt = palloc_get_page(PAL_ZERO);
 	t->fd_edge = 2;
+    t->is_exit = 0;
 	
 	sema_init(&t->fork_sema, 0);		/*** GrilledSalmon ***/
 	sema_init(&t->exit_sema, 0);
@@ -376,6 +377,8 @@ void thread_exit(void)
 	ASSERT(!intr_context());
 	struct thread *curr = thread_current();
 
+    int a = curr->is_exit; // debugging genie
+
 #ifdef USERPROG
 	process_exit();
 #endif
@@ -383,13 +386,13 @@ void thread_exit(void)
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable();
+
 #ifdef USERPROG	
-	curr->status = THREAD_DYING;
+	curr->is_exit = 1;
 	sema_up(&(curr->exit_sema));				// debugging genie : sema up하는 시점이 애매하여 확인필요
-	schedule();
-#else
-	do_schedule(THREAD_DYING);
 #endif
+
+	do_schedule(THREAD_DYING);
 	NOT_REACHED();
 }
 
@@ -620,7 +623,11 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
+
+#ifdef USERPROG // debugging genie
 	list_init(&t->child_list);				/*** GrilledSalmon ***/
+    t->pml4 = NULL;
+#endif
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

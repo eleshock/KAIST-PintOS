@@ -125,6 +125,7 @@ struct thread
     struct semaphore fork_sema;
     int exit_status;
     struct semaphore exit_sema;
+    int is_exit; // likes thread_status
 #endif 
 
 #ifdef VM

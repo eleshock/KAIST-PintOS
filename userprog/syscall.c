@@ -91,7 +91,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_FORK : 
-            f->rax = fork(f->R.rdi, f);
+            f->R.rax = fork(f->R.rdi, f);
             break;
         
         case SYS_EXEC :
@@ -190,7 +190,7 @@ void halt (void)
 void exit (int status)
 {	
 	struct thread *curr_thread = thread_current();
-	
+
 #ifdef USERPROG
     curr_thread->exit_status = status;                  /*** Jack ***/
 #endif

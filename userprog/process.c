@@ -304,7 +304,7 @@ process_wait (tid_t child_tid UNUSED) {
 		return -1;
 
 	// debugging genie : 사실, 이미 자식이 죽어있다면 exit_sema를 1로 올려주었을거라 확인문 없이 sema down만 해도 문제는 없을듯함.
-	while (child->status != THREAD_DYING)		
+	while (!child->is_exit)		
 		sema_down(&(child->exit_sema));
 	
 	ret_exit_status = child->exit_status;
@@ -317,9 +317,13 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-	
+
+/*** debugging genie ***/
+
 	/*** debugging genie : project IV :: msg ***/
-	printf("%s: exit(%d)\n", curr->name, curr->exit_status); 
+    /*** check whether curr is user or kernel, print msg when it is user. ***/
+    if(curr->pml4 != NULL)
+	    printf("%s: exit(%d)\n", curr->name, curr->exit_status); 
 
 	/*** Jack ***/
 	/*** Cleanup resources related to file system ***/
@@ -787,7 +791,6 @@ int process_add_file(struct file *f)
 
     return new_fd;
 }
-#endif
 
 /*** Jack ***/
 /* Return child process pointer who is having 'tid' in child list */
@@ -824,3 +827,4 @@ void remove_child_process(struct thread *cp)
 	return;
 }
 
+#endif // USERPROG
