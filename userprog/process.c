@@ -103,7 +103,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
 	if (is_kern_pte(pte)) {
-		return false;
+		return ture; /*** debugging genie ***/
 	}
 
 	/* 2. Resolve VA from the parent's page map level 4. */
