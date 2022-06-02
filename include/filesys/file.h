@@ -27,4 +27,9 @@ void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
 
+/*** Jack ***/
+/* Lock for file */
+void file_lock_acquire (struct file *f);
+void file_lock_release (struct file *f);
+
 #endif /* filesys/file.h */

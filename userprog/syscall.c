@@ -217,6 +217,8 @@ int open(const char *file)
     }
 
     int fd = process_add_file(new_file);
+    if (fd == -1)
+        file_close(new_file);
     
     return fd; // return file descriptor for 'file'
 }
@@ -325,7 +327,8 @@ int exec (const char *cmd_line)
 {
     check_address(cmd_line);
 
-    char *cmd_copy = palloc_get_page(0);
+    char *cmd_copy = malloc(strlen(cmd_line)+2); // 메모리 효율성 위해 malloc으로 변경
+    // char *cmd_copy = palloc_get_page(0);
     strlcpy(cmd_copy, cmd_line, PGSIZE);
 
     return process_exec(cmd_copy);

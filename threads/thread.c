@@ -623,10 +623,11 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
-
+	
 #ifdef USERPROG // debugging genie
 	list_init(&t->child_list);				/*** GrilledSalmon ***/
     t->pml4 = NULL;
+	t->running_file = NULL;
 #endif
 }
 

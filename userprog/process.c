@@ -10,6 +10,7 @@
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h" // Jack
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -46,13 +47,15 @@ process_create_initd (const char *file_name) {
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
-	fn_copy = palloc_get_page (0);
+	fn_copy = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
+	// fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
     /*** hyeRexx ***/
-    fn_for_tok = palloc_get_page(0);
+    fn_for_tok = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
+    // fn_for_tok = palloc_get_page(0); 
     ASSERT(fn_for_tok != NULL); // allocation check
     strlcpy(fn_for_tok, file_name, PGSIZE);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
@@ -61,8 +64,10 @@ process_create_initd (const char *file_name) {
     /*** hyeRexx : first arg : file_name -> token ***/
 	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR) {
-		palloc_free_page (fn_copy);
-		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
+		free(fn_copy);
+		free(fn_for_tok);
+		// palloc_free_page (fn_copy);
+		// palloc_free_page (fn_for_tok); /*** hyeRexx ***/
     }
 	return tid;
 }
@@ -201,7 +206,8 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	char **args_parsed = palloc_get_page(0);
+	char **args_parsed = calloc(64, sizeof(char *));
+	// char **args_parsed = palloc_get_page(0);
 	char *save_ptr;
 	char *arg;
 	int arg_count;
@@ -226,18 +232,20 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 	success = load (args_parsed[0], &_if);
 
+	/* If load failed, quit. */
+	if (!success)
+    {
+		free(file_name);
+		free(args_parsed);
+	    // palloc_free_page(file_name);
+	    // palloc_free_page(args_parsed);
+		return -1;
+    }
+
 	/*** Jack ***/
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-
-	/* If load failed, quit. */
-	if (!success)
-    {
-	    palloc_free_page (file_name);
-	    // palloc_free_page(args_parsed);
-		return -1;
-    }
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -336,7 +344,16 @@ process_exit (void) {
 	palloc_free_page(thread_current()->fdt);	// 할당받은 fdt page 반납
 	thread_current()->fdt = NULL;				// 명시적 NULL
 
+	/* Cleanup resources releated to virtual memory */
 	process_cleanup ();
+
+	/* Close running file of current thread */
+	if (curr->running_file)
+	{
+		file_lock_acquire(curr->running_file);
+		file_close(curr->running_file);
+		file_lock_release(curr->running_file);
+	}
 }
 
 /* Free the current process's resources. */
@@ -456,19 +473,25 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	// /* Open executable file. */
-	// file = filesys_open (file_name);
-	// if (file == NULL) {  
-	// 	printf ("load: %s: open failed\n", file_name);
-	// 	goto done;
-	// }
-
-    /*** debugging genie ***/
 	file = filesys_open (file_name);
 	if (file == NULL) {  
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
+	/*** Jack ***/
+	/* renew running file of current thread */
+	if (t->running_file)
+	{
+		file_lock_acquire(t->running_file);
+		file_close(t->running_file);
+		file_lock_release(t->running_file);
+	}
+	file_lock_acquire(file);
+	t->running_file = file;
+	file_deny_write(file);
+	file_lock_release(file);
+	
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -548,7 +571,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
+	// file_close (file); -> 실행 중에 파일 수정 방지 위해 file_deny_write후 프로그램 종료시 파일 close위해 현재 라인 주석처리
 	return success;
 }
 
@@ -771,7 +794,7 @@ setup_stack (struct intr_frame *if_) {
 struct file *process_get_file(int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-    if(fd > 511 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+    if(fd > 126 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	return thread_current()->fdt[fd];
 }
@@ -780,7 +803,7 @@ struct file *process_get_file(int fd)
 void process_close_file (int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	if(fd > 511 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+	if(fd > 126 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
@@ -796,6 +819,8 @@ int process_add_file(struct file *f)
     struct thread *curr_thread = thread_current(); // current thread
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
+	if (new_fd > 126)
+		return -1;
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
 
     return new_fd;
