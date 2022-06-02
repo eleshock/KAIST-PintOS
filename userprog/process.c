@@ -90,8 +90,12 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
     /* replace 4th argument : thread_current() to if_ */
 	tid_t child = thread_create (name, PRI_DEFAULT, __do_fork, if_);
     if(child == TID_ERROR) return TID_ERROR;
+    struct thread *child_t = get_child_process(child);
 
-    sema_down(&get_child_process(child)->fork_sema);
+    sema_down(&child_t->fork_sema);
+    
+    /*** error check ***/    
+    if(child_t->fork_flag == TID_ERROR) return TID_ERROR;
     return child;
 }
 
@@ -173,9 +177,13 @@ __do_fork (void *aux) {
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
-		do_iret (&if_);
+    {
+		curr_thread->fork_flag = 0;
+        do_iret (&if_);
+    }
 error:
     sema_up(&curr_thread->fork_sema);
+    curr_thread->fork_flag = -1;
     curr_thread->exit_status = -1;
 	thread_exit ();
 }
