@@ -311,7 +311,6 @@ unsigned tell (int fd)
 pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 추가함
 {
     check_address(thread_name);
-    check_address(intr_f);
 
     tid_t child = process_fork(thread_name, intr_f);
     return (child == TID_ERROR) ? TID_ERROR : child; 
