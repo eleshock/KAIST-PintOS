@@ -47,13 +47,15 @@ process_create_initd (const char *file_name) {
 
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
-	fn_copy = palloc_get_page (0);
+	fn_copy = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
+	// fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
     /*** hyeRexx ***/
-    fn_for_tok = palloc_get_page(0);
+    fn_for_tok = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
+    // fn_for_tok = palloc_get_page(0); 
     ASSERT(fn_for_tok != NULL); // allocation check
     strlcpy(fn_for_tok, file_name, PGSIZE);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
@@ -62,8 +64,10 @@ process_create_initd (const char *file_name) {
     /*** hyeRexx : first arg : file_name -> token ***/
 	tid = thread_create (token, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR) {
-		palloc_free_page (fn_copy);
-		palloc_free_page (fn_for_tok); /*** hyeRexx ***/
+		free(fn_copy);
+		free(fn_for_tok);
+		// palloc_free_page (fn_copy);
+		// palloc_free_page (fn_for_tok); /*** hyeRexx ***/
     }
 	return tid;
 }
@@ -202,7 +206,8 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	char **args_parsed = palloc_get_page(0);
+	char **args_parsed = calloc(64, sizeof(char *));
+	// char **args_parsed = palloc_get_page(0);
 	char *save_ptr;
 	char *arg;
 	int arg_count;
@@ -227,18 +232,20 @@ process_exec (void *f_name) {
 	/* And then load the binary */
 	success = load (args_parsed[0], &_if);
 
+	/* If load failed, quit. */
+	if (!success)
+    {
+		free(file_name);
+		free(args_parsed);
+	    // palloc_free_page(file_name);
+	    // palloc_free_page(args_parsed);
+		return -1;
+    }
+
 	/*** Jack ***/
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-
-	/* If load failed, quit. */
-	if (!success)
-    {
-	    // palloc_free_page (file_name);
-	    // palloc_free_page(args_parsed);
-		return -1;
-    }
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -787,7 +794,7 @@ setup_stack (struct intr_frame *if_) {
 struct file *process_get_file(int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-    if(fd > 511 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+    if(fd > 126 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	return thread_current()->fdt[fd];
 }
@@ -796,7 +803,7 @@ struct file *process_get_file(int fd)
 void process_close_file (int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	if(fd > 511 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+	if(fd > 126 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
@@ -812,6 +819,8 @@ int process_add_file(struct file *f)
     struct thread *curr_thread = thread_current(); // current thread
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
+	if (new_fd > 126)
+		return -1;
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
 
     return new_fd;

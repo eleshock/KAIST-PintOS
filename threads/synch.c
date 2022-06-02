@@ -119,7 +119,8 @@ sema_up (struct semaphore *sema) {
    }
 
    sema->value++;
-   test_max_priority(); // 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기
+   if (!intr_context()) // debugging genie : 외부 인터럽트 작동중이라면 test 하지 않음
+      test_max_priority(); // 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기
    intr_set_level (old_level);
 }
 
