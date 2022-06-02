@@ -262,8 +262,8 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 	t->fdt = palloc_get_page(PAL_ZERO);
 	t->fd_edge = 2;
 	
-	sema_init(t->fork_sema);		/*** GrilledSalmon ***/
-	sema_init(t->exit_sema);
+	sema_init(&t->fork_sema, 0);		/*** GrilledSalmon ***/
+	sema_init(&t->exit_sema, 0);
 	t->parent = thread_current();
 	list_push_back(&t->parent->child_list, &t->c_elem);
 #endif
