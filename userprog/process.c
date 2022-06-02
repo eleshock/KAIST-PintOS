@@ -86,8 +86,17 @@ initd (void *f_name) {
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
-	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+    /*** hyeRexx ***/
+    /* replace 4th argument : thread_current() to if_ */
+	tid_t child = thread_create (name, PRI_DEFAULT, __do_fork, if_);
+    if(child == TID_ERROR) return TID_ERROR;
+    struct thread *child_t = get_child_process(child);
+
+    sema_down(&child_t->fork_sema);
+    
+    /*** error check ***/    
+    if(child_t->fork_flag == TID_ERROR) return TID_ERROR;
+    return child;
 }
 
 #ifndef VM
@@ -102,21 +111,28 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	bool writable;
 
 	/* 1. TODO: If the parent_page is kernel page, then return immediately. */
+	if (is_kern_pte(pte)) {
+		return true; /*** debugging genie ***/
+	}
 
 	/* 2. Resolve VA from the parent's page map level 4. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
+	newpage = palloc_get_page(PAL_USER);
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
 	 *    TODO: according to the result). */
+	memcpy(newpage, parent_page, PGSIZE);
+	writable = is_writable(pte);
 
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: if fail to insert page, do error handling. */
+		return false;
 	}
 	return true;
 }
@@ -126,45 +142,57 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  * Hint) parent->tf does not hold the userland context of the process.
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
+/*** hyeRexx ***/
 static void
 __do_fork (void *aux) {
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
-	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct thread *curr_thread = thread_current ();
+    /*** hyeRexx ***/
+	struct thread *parent = curr_thread->parent; // perent thread implecated
+	struct intr_frame *parent_if = aux; // parent aux implecated
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
 	/* 2. Duplicate PT */
-	current->pml4 = pml4_create();
-	if (current->pml4 == NULL)
+	curr_thread->pml4 = pml4_create();
+	if (curr_thread->pml4 == NULL)
 		goto error;
 
-	process_activate (current);
+	process_activate (curr_thread);
 #ifdef VM
-	supplemental_page_table_init (&current->spt);
-	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
+	supplemental_page_table_init (&curr_thread->spt);
+	if (!supplemental_page_table_copy (&curr_thread->spt, &parent->spt))
 		goto error;
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
 		goto error;
 #endif
 
-	/* TODO: Your code goes here.
-	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
-	 * TODO:       in include/filesys/file.h. Note that parent should not return
-	 * TODO:       from the fork() until this function successfully duplicates
-	 * TODO:       the resources of parent.*/
+    /*** hyeRexx : duplicate files ***/
+    for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
+    {
+   	if(parent->fdt[fd] == NULL) continue;
+        curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
+    }
+    
+    ASSERT(curr_thread->fd_edge == parent->fd_edge);
+    sema_up(&curr_thread->fork_sema);
 
 	process_init ();
+    if_.R.rax = 0; // return to child's fork
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
-		do_iret (&if_);
+    {
+		curr_thread->fork_flag = 0;
+        do_iret (&if_);
+    }
 error:
+    sema_up(&curr_thread->fork_sema);
+    curr_thread->fork_flag = -1;
+    curr_thread->exit_status = -1;
 	thread_exit ();
 }
 
@@ -795,3 +823,4 @@ void remove_child_process(struct thread *cp)
 	palloc_free_page(cp);
 	return;
 }
+

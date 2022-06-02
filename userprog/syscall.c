@@ -38,6 +38,9 @@ typedef int pid_t;
 int wait (pid_t pid);                               /*** Jack ***/
 int exec (const char *cmd_line);                    /*** Jack ***/
 
+/*** hyeRexx : phase 3 ***/
+pid_t fork(const char *thread_name, struct intr_frame *intr_f);
+
 static struct lock filesys_lock;                    /*** GrilledSalmon ***/
 
 /* System call.
@@ -88,6 +91,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_FORK : 
+            f->rax = fork(f->R.rdi, f);
             break;
         
         case SYS_EXEC :
@@ -320,3 +324,13 @@ int exec (const char *cmd_line)
     check_address(cmd_line);
     return process_exec(cmd_line);
 }
+
+/*** hyeRexx ***/
+pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 추가함
+{
+    check_address(thread_name);
+
+    tid_t child = process_fork(thread_name, intr_f);
+    return (child == TID_ERROR) ? TID_ERROR : child; 
+}
+

@@ -261,6 +261,11 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 #ifdef USERPROG						/*** GrilledSalmon ***/
 	t->fdt = palloc_get_page(PAL_ZERO);
 	t->fd_edge = 2;
+	
+	sema_init(&t->fork_sema, 0);		/*** GrilledSalmon ***/
+	sema_init(&t->exit_sema, 0);
+	t->parent = thread_current();
+	list_push_back(&t->parent->child_list, &t->c_elem);
 #endif
 
 	tid = t->tid = allocate_tid();
@@ -271,6 +276,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
      *** hyeRexx ***
      * RSI(Extended Source Index) / RDI(Extended Destination Index)
      * 각 메모리 출발지와 목적지를 나타냄. 고속 메모리 전송 명령어에서 사용
+     * 그러나 여기에서는 단순 arguments.
      * 이 부분은 인터럽트 초기화인듯..? */
 	t->tf.rip = (uintptr_t)kernel_thread;
 	t->tf.R.rdi = (uint64_t)function;
@@ -614,6 +620,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
+	list_init(&t->child_list);				/*** GrilledSalmon ***/
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
