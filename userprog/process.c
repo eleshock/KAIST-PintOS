@@ -166,6 +166,7 @@ __do_fork (void *aux) {
     /*** hyeRexx : duplicate files ***/
     for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
     {
+   	if(parent->fdt[fd] == NULL) continue;
         curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
     }
     
