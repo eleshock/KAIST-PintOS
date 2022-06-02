@@ -215,17 +215,17 @@ process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
-	/* We first kill the current context */
-	process_cleanup ();
-	/* And then load the binary */
-	success = load (thread_current()->name, &_if);
-
 	/*** Jack ***/
 	/* Parsing file_name */ 
 	arg_count = 0;
 	for (arg = strtok_r(f_name, " ", &save_ptr); arg != NULL; arg = strtok_r(NULL, " ", &save_ptr))
 		args_parsed[arg_count++] = arg;
-	
+
+	/* We first kill the current context */
+	process_cleanup ();
+	/* And then load the binary */
+	success = load (args_parsed[0], &_if);
+
 	/*** Jack ***/
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
@@ -295,23 +295,31 @@ void argument_stack (char **parse, int count, struct intr_frame *_if)
  *
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
-#include "devices/timer.h"
 int
 process_wait (tid_t child_tid UNUSED) {
-	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
-	 * XXX:       to add infinite loop here before
-	 * XXX:       implementing the process_wait. */
-    timer_sleep(100);
-	return -1;
+	/*** Jack ***/
+	struct thread *child = get_child_process(child_tid);
+	int ret_exit_status=NULL;
+	if (child == NULL)
+		return -1;
+
+	// debugging genie : 사실, 이미 자식이 죽어있다면 exit_sema를 1로 올려주었을거라 확인문 없이 sema down만 해도 문제는 없을듯함.
+	while (child->status != THREAD_DYING)		
+		sema_down(&(child->exit_sema));
+	
+	ret_exit_status = child->exit_status;
+	remove_child_process(child);
+
+	return ret_exit_status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void
 process_exit (void) {
 	struct thread *curr = thread_current ();
-	/* TODO: Your code goes here.
-	 * TODO: Implement process termination message (see
-	 * TODO: project2/process_termination.html).
+	
+	/*** debugging genie : project IV :: msg ***/
+	printf("%s: exit(%d)\n", curr->name, curr->exit_status); 
 
 	/*** Jack ***/
 	/*** Cleanup resources related to file system ***/
@@ -780,3 +788,39 @@ int process_add_file(struct file *f)
     return new_fd;
 }
 #endif
+
+/*** Jack ***/
+/* Return child process pointer who is having 'tid' in child list */
+struct thread *get_child_process (int pid)
+{
+	struct list *child_list = &(thread_current()->child_list);
+	struct thread *curr_thread;
+	struct list_elem *curr_elem;
+	struct thread *ret_thread = NULL;
+
+	for (curr_elem = list_begin(child_list); curr_elem != list_tail(child_list); curr_elem = list_next(curr_elem))
+	{
+		curr_thread = list_entry(curr_elem, struct thread, c_elem);
+		if (curr_thread->tid == pid)
+		{
+			ret_thread = curr_thread;
+			break;
+		}
+	}
+	return ret_thread;
+}
+
+/*** Jack ***/
+/* Remove child process from child list of its parent and Free its memory */
+void remove_child_process(struct thread *cp)
+{
+	ASSERT (cp != NULL);
+	ASSERT (cp->parent == thread_current());
+	ASSERT (!list_empty(&(thread_current()->child_list)))
+	ASSERT (cp->c_elem.next != NULL || cp->c_elem.prev != NULL)
+	
+	list_remove(&(cp->c_elem));
+	palloc_free_page(cp);
+	return;
+}
+
