@@ -230,12 +230,14 @@ process_exec (void *f_name) {
 	/* Set arguments to interrupt frame */
 	argument_stack(args_parsed, arg_count, &_if);
 	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
-	palloc_free_page(args_parsed);
 
 	/* If load failed, quit. */
-	palloc_free_page (file_name);
 	if (!success)
+    {
+	    palloc_free_page (file_name);
+	    // palloc_free_page(args_parsed);
 		return -1;
+    }
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -453,9 +455,16 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
-	/* Open executable file. */
+	// /* Open executable file. */
+	// file = filesys_open (file_name);
+	// if (file == NULL) {  
+	// 	printf ("load: %s: open failed\n", file_name);
+	// 	goto done;
+	// }
+
+    /*** debugging genie ***/
 	file = filesys_open (file_name);
-	if (file == NULL) {
+	if (file == NULL) {  
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}

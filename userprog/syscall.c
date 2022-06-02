@@ -11,6 +11,8 @@
 /*** Jack ***/
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "threads/palloc.h"
+#include "lib/string.h"
 
 /*** GrilledSalmon ***/
 #include "threads/init.h"	
@@ -322,7 +324,11 @@ int wait (pid_t pid)
 int exec (const char *cmd_line)
 {
     check_address(cmd_line);
-    return process_exec(cmd_line);
+
+    char *cmd_copy = palloc_get_page(0);
+    strlcpy(cmd_copy, cmd_line, PGSIZE);
+
+    return process_exec(cmd_copy);
 }
 
 /*** hyeRexx ***/
