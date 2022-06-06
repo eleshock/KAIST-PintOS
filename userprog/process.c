@@ -51,7 +51,7 @@ process_create_initd (const char *file_name) {
 	// fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE);
+	strlcpy (fn_copy, file_name, PGSIZE); /*** debugging genie : PGSIZE ***/
 
     /*** hyeRexx ***/
     fn_for_tok = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
