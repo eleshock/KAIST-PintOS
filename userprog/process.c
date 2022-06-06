@@ -153,7 +153,7 @@ __do_fork (void *aux) {
     /*** hyeRexx ***/
 	struct thread *parent = curr_thread->parent; // perent thread implecated
 	struct intr_frame *parent_if = aux; // parent aux implecated
-	bool succ = true;
+	// bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
@@ -176,26 +176,25 @@ __do_fork (void *aux) {
     /*** hyeRexx : duplicate files ***/
     for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
     {
-   	if(parent->fdt[fd] == NULL) continue;
+        if(parent->fdt[fd] == NULL) continue;
         curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
+        if(curr_thread->fdt[fd] == NULL) goto error;
     }
-    
+
+    /*** debugging genie : fork_flag 순서!! ***/
     ASSERT(curr_thread->fd_edge == parent->fd_edge);
+    curr_thread->fork_flag = 0;
     sema_up(&curr_thread->fork_sema);
 
 	process_init ();
     if_.R.rax = 0; // return to child's fork
 
-	/* Finally, switch to the newly created process. */
-	if (succ)
-    {
-		curr_thread->fork_flag = 0;
-        do_iret (&if_);
-    }
+    do_iret (&if_);
+
 error:
-    sema_up(&curr_thread->fork_sema);
     curr_thread->fork_flag = -1;
     curr_thread->exit_status = -1;
+    sema_up(&curr_thread->fork_sema);
 	thread_exit ();
 }
 
