@@ -51,13 +51,13 @@ process_create_initd (const char *file_name) {
 	// fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE); /*** debugging genie : PGSIZE ***/
+	strlcpy (fn_copy, file_name, strlen(file_name)+2); /*** debugging genie : PGSIZE ***/
 
     /*** hyeRexx ***/
     fn_for_tok = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
     // fn_for_tok = palloc_get_page(0); 
     ASSERT(fn_for_tok != NULL); // allocation check
-    strlcpy(fn_for_tok, file_name, PGSIZE);
+    strlcpy(fn_for_tok, file_name, strlen(file_name)+2);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
@@ -66,8 +66,6 @@ process_create_initd (const char *file_name) {
 	if (tid == TID_ERROR) {
 		free(fn_copy);
 		free(fn_for_tok);
-		// palloc_free_page (fn_copy);
-		// palloc_free_page (fn_for_tok); /*** hyeRexx ***/
     }
 	return tid;
 }
