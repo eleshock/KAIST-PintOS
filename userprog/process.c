@@ -791,7 +791,7 @@ setup_stack (struct intr_frame *if_) {
 struct file *process_get_file(int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-    if(fd > 126 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+    if(fd > 128 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	return thread_current()->fdt[fd];
 }
@@ -800,7 +800,7 @@ struct file *process_get_file(int fd)
 void process_close_file (int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	if(fd > 126 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+	if(fd > 128 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
@@ -816,7 +816,7 @@ int process_add_file(struct file *f)
     struct thread *curr_thread = thread_current(); // current thread
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
-	if (new_fd > 126)
+	if (new_fd > 128)
 		return -1;
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
 
