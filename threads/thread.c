@@ -208,6 +208,7 @@ void thread_tick(void)
 		
 	/* Enforce preemption. */
 	if (++thread_ticks >= TIME_SLICE)
+    {
 		intr_yield_on_return();
         /*** hyeRexx ***/
         // Update curr thread priority
@@ -215,6 +216,7 @@ void thread_tick(void)
         { 
             mlfqs_priority(t);
         }
+    }
 }
 
 /* Prints thread statistics. */
@@ -255,6 +257,18 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
 
 	/* Initialize thread. */
 	init_thread(t, name, priority); // 들어온 priority로 초기화
+    
+#ifdef USERPROG						/*** GrilledSalmon ***/
+	t->fdt = palloc_get_page(PAL_ZERO);
+	t->fd_edge = 2;
+    t->is_exit = 0;
+	
+	sema_init(&t->fork_sema, 0);		/*** GrilledSalmon ***/
+	sema_init(&t->exit_sema, 0);
+	t->parent = thread_current();
+	list_push_back(&t->parent->child_list, &t->c_elem);
+#endif
+
 	tid = t->tid = allocate_tid();
 
 	/* Call the kernel_thread if it scheduled.
@@ -263,6 +277,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
      *** hyeRexx ***
      * RSI(Extended Source Index) / RDI(Extended Destination Index)
      * 각 메모리 출발지와 목적지를 나타냄. 고속 메모리 전송 명령어에서 사용
+     * 그러나 여기에서는 단순 arguments.
      * 이 부분은 인터럽트 초기화인듯..? */
 	t->tf.rip = (uintptr_t)kernel_thread;
 	t->tf.R.rdi = (uint64_t)function;
@@ -279,6 +294,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function, void 
     /*** hyeRexx ***/
     ASSERT(t->status == THREAD_READY); // 언블락 잘 되었는지 확인
     /* 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기 */
+
     test_max_priority();
 
 	return tid;
@@ -359,6 +375,9 @@ tid_t thread_tid(void)
 void thread_exit(void)
 {
 	ASSERT(!intr_context());
+	struct thread *curr = thread_current();
+
+    int a = curr->is_exit; // debugging genie
 
 #ifdef USERPROG
 	process_exit();
@@ -367,6 +386,12 @@ void thread_exit(void)
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable();
+
+#ifdef USERPROG	
+	curr->is_exit = 1;
+	sema_up(&(curr->exit_sema));				// debugging genie : sema up하는 시점이 애매하여 확인필요
+#endif
+
 	do_schedule(THREAD_DYING);
 	NOT_REACHED();
 }
@@ -377,6 +402,11 @@ void thread_yield(void)
 {
 	struct thread *curr = thread_current();
 	enum intr_level old_level;
+
+    if(list_empty(&ready_list))
+    {
+        return;
+    }
 
 	ASSERT(!intr_context());
 
@@ -420,15 +450,14 @@ void thread_sleep(int64_t awake_ticks)
  * 자신이 더 낮다면 yield */
 void test_max_priority(void)
 {
-	
-	if (list_empty(&ready_list)) { // ready_list가 비어있을 땐 그냥 리턴
+	if (list_empty(&ready_list)) // ready_list가 비어있을 땐 그냥 리턴
+    { 
 		return;
 	}
-
-	struct thread *curr = thread_current();
+    
 	struct thread *first_thread = list_entry(list_begin(&ready_list), struct thread, elem); // ready_list에서 우선순위가 가장 높은 thread
 	
-	if (curr->priority < first_thread->priority)   // 현재 thread의 우선순위가 더 낮다면
+	if (thread_get_priority() < first_thread->priority)   // 현재 thread의 우선순위가 더 낮다면
 	{
 		thread_yield(); 						   // 양보!
 	}
@@ -464,10 +493,16 @@ void thread_set_nice(int nice UNUSED) // JACK
 	// ASSERT(nice != NULL);
 
 	enum intr_level old_level;
+	struct thread *curr = thread_current();
 
 	old_level = intr_disable();
-	thread_current()->nice = nice;
+	curr->nice = nice;
 	intr_set_level(old_level);
+
+	// Jack - set nice에서 nice 변동 후 priority 재계산, 필요시 변동에 따른 scheduling 진행되도록 추가
+	mlfqs_recent_cpu(curr);
+	mlfqs_priority(curr);
+	test_max_priority();
 	
 	return;
 }
@@ -559,7 +594,6 @@ static void
 kernel_thread(thread_func *function, void *aux)
 {
 	ASSERT(function != NULL);
-
 	intr_enable(); /* The scheduler runs with interrupts off. */
 	function(aux); /* Execute the thread function. */
 	thread_exit(); /* If function() returns, kill the thread. */
@@ -576,7 +610,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	ASSERT(name != NULL);
  
 	memset(t, 0, sizeof *t);
-	t->status = THREAD_BLOCKED;
+	t->status = THREAD_BLOCKED; 
 	strlcpy(t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
@@ -589,6 +623,12 @@ init_thread(struct thread *t, const char *name, int priority)
 	// ASSERT(t->nice != NULL); // Jack - nice값이 계속 쓰레드를 만드는 쓰레드의 nice값을 잘 따라가고 있다면 NULL이면 안됨.
 	// ASSERT(t->recent_cpu != NULL); // Jack - 동일 근거.
 	list_init(&t->donator_list);			/*** GrilledSalmon ***/
+	
+#ifdef USERPROG // debugging genie
+	list_init(&t->child_list);				/*** GrilledSalmon ***/
+    t->pml4 = NULL;
+	t->running_file = NULL;
+#endif
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -715,12 +755,17 @@ do_schedule(int status)
 {
 	ASSERT(intr_get_level() == INTR_OFF);
 	ASSERT(thread_current()->status == THREAD_RUNNING);
+
+#ifndef USERPROG
 	while (!list_empty(&destruction_req))
 	{
+
 		struct thread *victim =
 			list_entry(list_pop_front(&destruction_req), struct thread, elem);
 		palloc_free_page(victim);
 	}
+#endif
+
 	thread_current()->status = status;
 	schedule();
 }
@@ -754,13 +799,14 @@ schedule(void)
 		   currently used bye the stack.
 		   The real destruction logic will be called at the beginning of the
 		   schedule(). */
+#ifndef USERPROG // Jack
 		if (curr && curr->status == THREAD_DYING && curr != initial_thread)
 		{
 			ASSERT(curr != next);
 			list_remove(&curr->i_elem); // Jack : 쓰레드 루틴 끝나면 총괄 리스트에서도 빼줌.
 			list_push_back(&destruction_req, &curr->elem);
 		}
-
+#endif
 		/* Before switching the thread, we first save the information
 		 * of current running. */
 		thread_launch(next);
@@ -948,6 +994,5 @@ void mlfqs_recent_cpu(struct thread *t)
 	t->recent_cpu = add_mixed(res_multi, t->nice); // add nice and change -- add_mixed 수정
 	
 	return;
-
 }
 

@@ -116,12 +116,12 @@ sema_up (struct semaphore *sema) {
    if (!list_empty (&sema->waiters)) {
         list_sort(&sema->waiters, cmp_priority, NULL); // sort waiters
         thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
-    }
+   }
 
    sema->value++;
+   if (!intr_context()) // debugging genie : 외부 인터럽트 작동중이라면 test 하지 않음
+      test_max_priority(); // 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기
    intr_set_level (old_level);
-   
-   test_max_priority(); // 만약 priority가 실행중인 priority보다 높다면 바로 cpu 점유하기
 }
 
 static void sema_test_helper (void *sema_);

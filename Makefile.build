@@ -62,3 +62,14 @@ Makefile: $(SRCDIR)/Makefile.build
 	cp $< $@
 
 -include $(DEPENDS)
+
+disk:
+	pintos-mkdisk filesys.dsk 10
+    # make tests/userprog/exec-arg.result
+	# pintos --fs-disk filesys.dsk -p tests/userprog/args-single:args-single -- -q -f run 'args-single onearg'
+	# pintos --fs-disk filesys.dsk -p tests/userprog/args-multiple:args-multiple -- -q -f run 'args-multiple some arguments for you!'
+    # pintos -v -k -T 60 -m 20   --fs-disk=10 -p tests/userprog/exec-arg:exec-arg -- -q   -f run 'exec-arg' < /dev/null 2> tests/userprog/exec-arg.errors > tests/userprog/exec-arg.output
+    
+
+
+    
