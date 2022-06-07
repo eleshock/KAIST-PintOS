@@ -140,10 +140,6 @@ syscall_handler (struct intr_frame *f UNUSED)
             close(f->R.rdi);
             break;        
     }
-	// printf ("system call!\n");
-    
-	do_iret(f);
-	NOT_REACHED();
 }
 
 void 
@@ -328,8 +324,7 @@ int exec (const char *cmd_line)
     check_address(cmd_line);
 
     char *cmd_copy = malloc(strlen(cmd_line)+2); // 메모리 효율성 위해 malloc으로 변경
-    // char *cmd_copy = palloc_get_page(0);
-    strlcpy(cmd_copy, cmd_line, PGSIZE);
+    strlcpy(cmd_copy, cmd_line, strlen(cmd_line)+2);
 
     return process_exec(cmd_copy);
 }

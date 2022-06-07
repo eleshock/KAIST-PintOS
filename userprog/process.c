@@ -51,13 +51,13 @@ process_create_initd (const char *file_name) {
 	// fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
-	strlcpy (fn_copy, file_name, PGSIZE);
+	strlcpy (fn_copy, file_name, strlen(file_name)+2); /*** debugging genie : PGSIZE ***/
 
     /*** hyeRexx ***/
     fn_for_tok = malloc(strlen(file_name)+2); // 메모리 효율성 위해 malloc으로 변경
     // fn_for_tok = palloc_get_page(0); 
     ASSERT(fn_for_tok != NULL); // allocation check
-    strlcpy(fn_for_tok, file_name, PGSIZE);
+    strlcpy(fn_for_tok, file_name, strlen(file_name)+2);
     token = strtok_r(fn_for_tok, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
@@ -66,8 +66,6 @@ process_create_initd (const char *file_name) {
 	if (tid == TID_ERROR) {
 		free(fn_copy);
 		free(fn_for_tok);
-		// palloc_free_page (fn_copy);
-		// palloc_free_page (fn_for_tok); /*** hyeRexx ***/
     }
 	return tid;
 }
@@ -155,7 +153,7 @@ __do_fork (void *aux) {
     /*** hyeRexx ***/
 	struct thread *parent = curr_thread->parent; // perent thread implecated
 	struct intr_frame *parent_if = aux; // parent aux implecated
-	bool succ = true;
+	// bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
@@ -178,26 +176,25 @@ __do_fork (void *aux) {
     /*** hyeRexx : duplicate files ***/
     for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
     {
-   	if(parent->fdt[fd] == NULL) continue;
+        if(parent->fdt[fd] == NULL) continue;
         curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
+        if(curr_thread->fdt[fd] == NULL) goto error;
     }
-    
+
+    /*** debugging genie : fork_flag 순서!! ***/
     ASSERT(curr_thread->fd_edge == parent->fd_edge);
+    curr_thread->fork_flag = 0;
     sema_up(&curr_thread->fork_sema);
 
 	process_init ();
     if_.R.rax = 0; // return to child's fork
 
-	/* Finally, switch to the newly created process. */
-	if (succ)
-    {
-		curr_thread->fork_flag = 0;
-        do_iret (&if_);
-    }
+    do_iret (&if_);
+
 error:
-    sema_up(&curr_thread->fork_sema);
     curr_thread->fork_flag = -1;
     curr_thread->exit_status = -1;
+    sema_up(&curr_thread->fork_sema);
 	thread_exit ();
 }
 
@@ -794,7 +791,7 @@ setup_stack (struct intr_frame *if_) {
 struct file *process_get_file(int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-    if(fd > 126 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
+    if(fd > 128 || fd < 0) return NULL; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	return thread_current()->fdt[fd];
 }
@@ -803,7 +800,7 @@ struct file *process_get_file(int fd)
 void process_close_file (int fd)
 {
 	// ASSERT (fd >= 0); // debugging genie : fd이 음수일 경우 종료시킬건지 NULL 리턴해줄건지
-	if(fd > 126 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
+	if(fd > 128 || fd < 0) return; /*** DEBUGGINT GENIE PHASE 2 ***/
 
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
@@ -819,7 +816,7 @@ int process_add_file(struct file *f)
     struct thread *curr_thread = thread_current(); // current thread
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
-	if (new_fd > 126)
+	if (new_fd > 128)
 		return -1;
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
 
