@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "lib/kernel/hash.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -65,6 +66,18 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+	/* prj3-memory management, yeopto */
+	struct page local_page;
+	struct hash_elem *found_elem;
+	local_page.va = pg_round_down(va);
+	
+	found_elem = hash_find(&spt->ht, &local_page.hash_elem);
+	
+	if (found_elem == NULL) {
+		return NULL;
+	}
+
+	page = hash_entry(found_elem, struct page, hash_elem);
 
 	return page;
 }
@@ -171,9 +184,31 @@ vm_do_claim_page (struct page *page) {
 	return swap_in (page, frame->kva);
 }
 
+/* prj3-memory management, yeopto */
+unsigned
+page_hash (const struct hash_elem *p_, void *aux UNUSED) {
+	const struct page *p = hash_entry (p_, struct page, hash_elem);
+	return hash_bytes (&p->va, sizeof p->va);
+}
+
+/* prj3-memory management, yeopto */
+bool
+page_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux UNUSED) {
+	const struct page *a = hash_entry (a_, struct page, hash_elem);
+	const struct page *b = hash_entry (b_, struct page, hash_elem);
+
+	return a->va < b->va;
+}
+
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
+	/* prj3-memory management, yeopto */
+	ASSERT(spt != NULL);
+	
+	hash_init(&spt->ht, page_hash, page_less, NULL);
+	return;
 }
 
 /* Copy supplemental page table from src to dst */
@@ -188,3 +223,4 @@ supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
 }
+
