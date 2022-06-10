@@ -1,8 +1,16 @@
 /* vm.c: Generic interface for virtual memory objects. */
 
 #include "threads/malloc.h"
+#include "threads/vaddr.h"
+#include "threads/mmu.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "lib/kernel/hash.h"
+
+
+/* Jack */
+/* Global Frame table */
+static const struct frame_table ft;
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -16,6 +24,8 @@ vm_init (void) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+
+	ft_init();
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -73,8 +83,15 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
+	ASSERT(spt != NULL);
+	ASSERT(page != NULL);
+
 	int succ = false;
 	/* TODO: Fill this function. */
+
+	/* Jack */
+	page->va = pg_round_down(page->va);						// page의 va를 page 첫주소로 갱신
+	succ = hash_insert(&spt->ht, &page->hash_elem)? false: true;		// spt의 hash table에 page hash_elem삽입 후 성공여부 저장
 
 	return succ;
 }
@@ -102,6 +119,35 @@ vm_evict_frame (void) {
 	/* TODO: swap out the victim and return the evicted frame. */
 
 	return NULL;
+}
+
+/* Jack */
+/* Initialize global frame table */
+void ft_init(void)
+{
+	list_init(&ft.table);
+	lock_init(&ft.lock);
+}
+
+/* Insert FR to global frame table */
+void frame_table_insert(struct frame *fr)
+{
+	ASSERT(fr != NULL);
+	lock_acquire(&ft.lock);
+	list_push_back(&ft.table, &fr->f_elem);
+	lock_release(&ft.lock);
+}
+
+/* Delete FR from global frame table and return next frame */
+struct frame *frame_table_delete(struct frame *fr)
+{
+	ASSERT(fr != NULL);
+
+	lock_acquire(&ft.lock);
+	struct list_elem *next = list_remove(&fr->f_elem);
+	lock_release(&ft.lock);
+
+	return next != list_tail(&ft.table)? list_entry(next, struct frame, f_elem) : NULL;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -150,23 +196,30 @@ vm_dealloc_page (struct page *page) {
 
 /* Claim the page that allocate on VA. */
 bool
-vm_claim_page (void *va UNUSED) {
+vm_claim_page (void *va UNUSED) { // debugging sanori - va가 유효한지 확인 필요하지 않을까? - 일단 page fault 핸들러에서 걸러준다고 가정하면 문제 없을듯
 	struct page *page = NULL;
-	/* TODO: Fill this function */
+	struct supplemental_page_table *spt = &thread_current()->spt;
 
-	return vm_do_claim_page (page);
+	/* TODO: Fill this function */
+	page = spt_find_page(spt, va);
+
+	return page != NULL? vm_do_claim_page (page): false;
 }
 
 /* Claim the PAGE and set up the mmu. */
 static bool
 vm_do_claim_page (struct page *page) {
+	if (page == NULL) return false;
+
 	struct frame *frame = vm_get_frame ();
+	uint64_t *pml4 = thread_current()->pml4;
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	pml4_set_page(pml4, page->va, frame->kva, 1); // Jack
 
 	return swap_in (page, frame->kva);
 }

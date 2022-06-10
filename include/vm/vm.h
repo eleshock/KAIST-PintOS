@@ -63,6 +63,16 @@ struct page {
 struct frame {
 	void *kva;
 	struct page *page;
+
+	// Jack
+	struct list_elem f_elem;
+};
+
+/* Jack */
+/* Frame table */
+struct frame_table {
+	struct list table;
+	struct lock lock;
 };
 
 /* The function table for page operations.
@@ -83,7 +93,7 @@ struct page_operations {
 
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
- * All designs up to you for this. */
+ * All designs up to you for this. */ 
 struct supplemental_page_table {
 };
 
@@ -108,5 +118,9 @@ bool vm_alloc_page_with_initializer (enum vm_type type, void *upage,
 void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
+
+void frame_table_init(void);
+void frame_table_insert(struct frame *fr);
+struct frame *frame_table_delete(struct frame *fr);
 
 #endif  /* VM_VM_H */
