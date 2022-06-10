@@ -136,7 +136,7 @@ vm_get_frame (void) {
 	ASSERT (frame->page == NULL);
 
 	/* eleshock */
-	frame_table_insert(frame);
+	ft_insert(frame);
 
 	return frame;
 }
