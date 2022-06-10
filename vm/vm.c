@@ -196,6 +196,7 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) { // debugging sanori - va가 유효한지 확인 필요하지 않을까? - 일단 page fault 핸들러에서 걸러준다고 가정하면 문제 없을듯
+	ASSERT(va != NULL);
 	struct page *page = NULL;
 	struct supplemental_page_table *spt = &thread_current()->spt;
 
@@ -218,7 +219,7 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	pml4_set_page(pml4, page->va, frame->kva, 1); // Jack
+	pml4_set_page(pml4, page->va, frame->kva, 1); // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯
 
 	return swap_in (page, frame->kva);
 }
