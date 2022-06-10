@@ -4,6 +4,9 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 
+/* eleshock */
+#include "lib/kernel/hash.h"
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -79,9 +82,18 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	return succ;
 }
 
+/* eleshock */
 void
 spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
+	ASSERT(spt != NULL);
+	ASSERT(page != NULL);
+
+	struct hash *h = &spt->ht;
+	struct hash_elem *e = &page->hash_elem;
+
+	hash_delete(h, e);
 	vm_dealloc_page (page);
+
 	return true;
 }
 
@@ -111,10 +123,21 @@ vm_evict_frame (void) {
 static struct frame *
 vm_get_frame (void) {
 	struct frame *frame = NULL;
-	/* TODO: Fill this function. */
+
+	/* eleshock */
+	void *pp = palloc_get_page(PAL_USER);
+	frame = malloc(sizeof(struct frame));
+	if (frame == NULL)
+		PANIC("todo");
+	frame->kva = pp;
+	frame->page = NULL;
 
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
+
+	/* eleshock */
+	ft_insert(frame);
+
 	return frame;
 }
 
