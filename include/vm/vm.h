@@ -2,6 +2,8 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "lib/kernel/hash.h"
+
 
 enum vm_type {
 	/* page not initialized */
@@ -11,7 +13,7 @@ enum vm_type {
 	/* page that realated to the file */
 	VM_FILE = 2,
 	/* page that hold the page cache, for project 4 */
-	VM_PAGE_CACHE = 3,
+	VM_PAGE_CACHE = 3, // 이건 project 4 때
 
 	/* Bit flags to store state */
 
@@ -44,6 +46,9 @@ struct page {
 	const struct page_operations *operations;
 	void *va;              /* Address in terms of user space */
 	struct frame *frame;   /* Back reference for frame */
+
+	/* prj3-memory management, yeopto */
+	struct hash_elem hash_elem;
 
 	/* Your implementation */
 
@@ -95,6 +100,8 @@ struct page_operations {
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */ 
 struct supplemental_page_table {
+	/* prj3-memory management, yeopto */
+	struct hash ht;
 };
 
 #include "threads/thread.h"
