@@ -130,7 +130,7 @@ void ft_init(void)
 }
 
 /* Insert FR to global frame table */
-void frame_table_insert(struct frame *fr)
+void ft_insert(struct frame *fr)
 {
 	ASSERT(fr != NULL);
 	lock_acquire(&ft.lock);
@@ -139,7 +139,7 @@ void frame_table_insert(struct frame *fr)
 }
 
 /* Delete FR from global frame table and return next frame */
-struct frame *frame_table_delete(struct frame *fr)
+struct frame *ft_delete(struct frame *fr)
 {
 	ASSERT(fr != NULL);
 
