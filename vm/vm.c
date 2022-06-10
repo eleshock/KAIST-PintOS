@@ -5,15 +5,11 @@
 #include "threads/mmu.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
-#include "lib/kernel/hash.h"
 
 
 /* Jack */
 /* Global Frame table */
 static const struct frame_table ft;
-
-/* eleshock */
-#include "lib/kernel/hash.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
