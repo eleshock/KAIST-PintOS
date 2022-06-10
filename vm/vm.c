@@ -83,8 +83,7 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 bool
 spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
-	ASSERT(spt != NULL);
-	ASSERT(page != NULL);
+	if (spt == NULL || page == NULL) return false;
 
 	int succ = false;
 	/* TODO: Fill this function. */
