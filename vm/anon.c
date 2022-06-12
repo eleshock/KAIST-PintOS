@@ -27,10 +27,17 @@ vm_anon_init (void) {
 /* Initialize the file mapping */
 bool
 anon_initializer (struct page *page, enum vm_type type, void *kva) {
+	ASSERT(page != NULL);
+	struct uninit_page *uninit = &page->uninit;
+	memset(uninit, 0, sizeof(struct uninit_page));
+
 	/* Set up the handler */
 	page->operations = &anon_ops;
 
 	struct anon_page *anon_page = &page->anon;
+	anon_page->vm_type = VM_SUBTYPE(type);
+	anon_page->swap_slot = -1;
+	return true;
 }
 
 /* Swap in the page by read contents from the swap disk. */
@@ -49,4 +56,10 @@ anon_swap_out (struct page *page) {
 static void
 anon_destroy (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
+
+	/* eleshock */
+	struct frame *fr = page->frame;
+	ft_delete(fr);
+	palloc_free_page(fr->kva);
+	free(fr);
 }

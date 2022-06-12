@@ -7,9 +7,10 @@
 #include "vm/inspect.h"
 
 
+
 /* Jack */
 /* Global Frame table */
-static const struct frame_table ft;
+static struct frame_table ft;
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -62,8 +63,26 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
+		bool (*initializer)(struct page *, enum vm_type, void *);
+		switch (VM_TYPE(type))
+		{
+		case VM_ANON:
+			initializer = anon_initializer;
+			break;
+		case VM_FILE:
+			initializer = file_backed_initializer;
+			break;
+		default:
+			goto err;
+		}
+		struct page *new_page = malloc(sizeof(struct page));
+		upage = pg_round_down(upage);
+		uninit_new(new_page, upage, init, type, aux, initializer);
+		new_page->writable = writable;
 
 		/* TODO: Insert the page into the spt. */
+		spt_insert_page(spt, new_page);
+		return true;
 	}
 err:
 	return false;
@@ -252,7 +271,7 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	pml4_set_page(pml4, page->va, frame->kva, 1); // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯
+	pml4_set_page(pml4, page->va, frame->kva, page->writable); // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯
 
 	return swap_in (page, frame->kva);
 }
@@ -290,10 +309,18 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 }
 
+void
+spt_destructor (struct hash_elem *e, void *aux) {
+	struct page *page = hash_entry(e, struct page, hash_elem);
+	vm_dealloc_page(page);
+}
+
 /* Free the resource hold by the supplemental page table */
 void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-}
 
+	/* eleshock */
+	hash_destroy(&spt->ht, spt_destructor);
+}
