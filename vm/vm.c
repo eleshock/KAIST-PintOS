@@ -95,7 +95,7 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
 	if (spt == NULL || va == NULL) return NULL;
-	
+
 	/* prj3-memory management, yeopto */
 	struct page local_page;
 	struct hash_elem *found_elem;

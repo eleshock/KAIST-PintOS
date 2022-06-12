@@ -36,7 +36,7 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	page->operations = &anon_ops; 
 
 	struct anon_page *anon_page = &page->anon;
-	anon_page->vm_type = VM_SUBTYPE(type);
+	anon_page->sub_type = VM_SUBTYPE(type);
 	anon_page->swap_slot = -1;
 	return true;
 }

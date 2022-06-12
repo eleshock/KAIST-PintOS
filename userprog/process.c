@@ -746,6 +746,8 @@ lazy_load_segment (struct page *page, void *aux) {
 	if (file_read_at(file, kva, read_bytes, ofs) != (int) read_bytes)
 		return false;
 	memset (kva + read_bytes, 0, zero_bytes);
+	
+	free(load_src);
 	return true;
 }
 

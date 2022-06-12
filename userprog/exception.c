@@ -148,7 +148,7 @@ page_fault (struct intr_frame *f) {
 
 	/* Count page faults. */
 	page_fault_cnt++;
-    // exit(-1); // Jack - page fault handler 작동하므로 exit 주석처리
+    exit(-1); // Jack - page fault handler 작동하므로 exit 주석처리 - 일단 다시 살림 ㅋ
 
 	/* If the fault is true fault, show info and exit. */
 	printf ("Page fault at %p: %s error %s page in %s context.\n",
