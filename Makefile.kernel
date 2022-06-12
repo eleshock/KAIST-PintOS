@@ -18,3 +18,6 @@ build/%: $(DIRS) build/Makefile
 
 clean:
 	rm -rf build
+
+test/%:
+	cd build && make $* && cd ..
