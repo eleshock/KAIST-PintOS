@@ -24,6 +24,7 @@ vm_anon_init (void) {
 	swap_disk = NULL;
 }
 
+/* eleshock */
 /* Initialize the file mapping */
 bool
 anon_initializer (struct page *page, enum vm_type type, void *kva) {
@@ -52,6 +53,7 @@ anon_swap_out (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
 }
 
+/* eleshock */
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
 static void
 anon_destroy (struct page *page) {

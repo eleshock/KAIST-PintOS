@@ -309,6 +309,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 }
 
+/* eleshock */
 void
 spt_destructor (struct hash_elem *e, void *aux) {
 	struct page *page = hash_entry(e, struct page, hash_elem);
