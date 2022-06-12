@@ -65,4 +65,12 @@ uninit_destroy (struct page *page) {
 	struct uninit_page *uninit UNUSED = &page->uninit;
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	/* prj3 - Anonymous Page, yeopto */
+	if (page->frame != NULL) {
+		free(page->frame);
+		palloc_free_page(page->frame->kva);
+	}
+	if (uninit->aux != NULL) {
+		free(uninit->aux);
+	} 
 }
