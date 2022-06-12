@@ -311,7 +311,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 /* eleshock */
 void
-spt_destructor (struct hash_elem *e, void *aux) {
+spt_destructor (struct hash_elem *e, void *aux UNUSED) {
 	struct page *page = hash_entry(e, struct page, hash_elem);
 	vm_dealloc_page(page);
 }
