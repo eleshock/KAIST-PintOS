@@ -4,7 +4,7 @@
 #include "threads/palloc.h"
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
-
+#include "threads/malloc.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -58,7 +58,10 @@ struct page {
 
 	/* Your implementation */
 
-	/* Per-type data are  binded into the union.
+	/* eleshock */
+	bool writable;
+	/* Per-type data are binded into the union.
+
 	 * Each function automatically detects the current union */
 	union {
 		struct uninit_page uninit;
@@ -135,5 +138,7 @@ enum vm_type page_get_type (struct page *page);
 void ft_init(void);
 void ft_insert(struct frame *fr);
 struct frame *ft_delete(struct frame *fr);
+/* eleshock */
+void page_destructor (struct hash_elem *e, void *aux);
 
 #endif  /* VM_VM_H */
