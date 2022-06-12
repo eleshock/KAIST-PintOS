@@ -132,6 +132,7 @@ enum vm_type page_get_type (struct page *page);
 void ft_init(void);
 void ft_insert(struct frame *fr);
 struct frame *ft_delete(struct frame *fr);
+/* eleshock */
 void page_destructor (struct hash_elem *e, void *aux);
 
 #endif  /* VM_VM_H */
