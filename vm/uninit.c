@@ -67,8 +67,9 @@ uninit_destroy (struct page *page) {
 	 * TODO: If you don't have anything to do, just return. */
 	/* prj3 - Anonymous Page, yeopto */
 	if (page->frame != NULL) {
-		free(page->frame);
 		palloc_free_page(page->frame->kva);
+		ft_delete(page->frame);
+		free(page->frame);
 	}
 	if (uninit->aux != NULL) {
 		free(uninit->aux);
