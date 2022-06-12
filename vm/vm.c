@@ -5,6 +5,7 @@
 #include "threads/mmu.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "lib/string.h"
 
 
 
@@ -234,7 +235,11 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 
-	return vm_do_claim_page (page);
+	/* Jack */
+	// if (!not_present || !is_user_vaddr(addr) || addr == NULL) return false; // debugging sanori - read/write 확인할 일이 있을까?
+	if (!not_present) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
+
+	return ((page = spt_find_page(spt, addr)) == NULL)? false : vm_do_claim_page (page);
 }
 
 /* Free the page.
@@ -248,7 +253,8 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) { // debugging sanori - va가 유효한지 확인 필요하지 않을까? - 일단 page fault 핸들러에서 걸러준다고 가정하면 문제 없을듯
-	ASSERT(va != NULL);
+	if (va == NULL) return false;
+
 	struct page *page = NULL;
 	struct supplemental_page_table *spt = &thread_current()->spt;
 
@@ -266,13 +272,18 @@ vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
 	uint64_t *pml4 = thread_current()->pml4;
 
+	/* prj3 - Anonymous Page, yeopto */
+	if (page->operations->type == VM_UNINIT && VM_SUBTYPE(page->uninit.type) == VM_STACK)
+		memset(frame->kva, 0, PGSIZE);
+
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	pml4_set_page(pml4, page->va, frame->kva, page->writable); // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯
-
+	if (!pml4_set_page(pml4, page->va, frame->kva, page->writable)) // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯 - page에 write 관련 필드가 필요할까?
+		return false;
+	
 	return swap_in (page, frame->kva);
 }
 
@@ -303,10 +314,46 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 	return;
 }
 
+/* Jack */
+/* Copy page function for spt copy */
+bool 
+page_copy (struct page *page, void *aux)
+{
+	struct page *parent_page = aux;
+	void *parent_kva = parent_page->frame->kva;
+	void *child_kva = page->frame->kva;
+	
+	return memcpy(child_kva, parent_kva, PGSIZE)!=NULL? true: false; // debugging sanori - kva로 접근해야할까 uva로 접근해야할까?
+}
+
 /* Copy supplemental page table from src to dst */
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
+	/* Jack */
+	struct hash_iterator i;
+	hash_first(&i, &src->ht);
+	while (hash_next(&i))
+	{
+		struct page *src_p = hash_entry(hash_cur(&i), struct page, hash_elem);
+		
+		switch (src_p->operations->type)
+		{
+		case VM_UNINIT:
+			if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, src_p->uninit.aux))
+				return false;
+			break;
+		case VM_ANON:
+			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, src_p) || \
+			 !vm_claim_page(src_p->va))
+			 	return false;
+			break;
+		case VM_FILE:
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 /* eleshock */

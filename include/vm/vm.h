@@ -23,6 +23,10 @@ enum vm_type {
 	VM_MARKER_0 = (1 << 3),
 	VM_MARKER_1 = (1 << 4),
 
+	/* Jack */
+	VM_STACK = (1 << 5),
+	VM_SEGMENT = (1 << 6),
+
 	/* DO NOT EXCEED THIS VALUE. */
 	VM_MARKER_END = (1 << 31),
 };
@@ -38,6 +42,7 @@ struct page_operations;
 struct thread;
 
 #define VM_TYPE(type) ((type) & 7)
+#define VM_SUBTYPE(type) ((type) & ~7) // Jack
 
 /* The representation of "page".
  * This is kind of "parent class", which has four "child class"es, which are
@@ -56,6 +61,7 @@ struct page {
 	/* eleshock */
 	bool writable;
 	/* Per-type data are binded into the union.
+
 	 * Each function automatically detects the current union */
 	union {
 		struct uninit_page uninit;

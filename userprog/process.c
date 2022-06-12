@@ -721,11 +721,32 @@ install_page (void *upage, void *kpage, bool writable) {
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
+/* prj3 - Anonymous Page, yeopto */
+struct segment {
+	struct file *file;
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+};
+
 static bool
 lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+
+	/* Jack */
+	struct segment *load_src = aux;
+	struct file *file = load_src->file;
+	off_t ofs = load_src->ofs;
+	uint32_t read_bytes = load_src->read_bytes;
+	uint32_t zero_bytes = load_src->zero_bytes;
+	void *kva = page->frame->kva;
+	
+	if (file_read_at(file, kva, read_bytes, ofs) != (int) read_bytes)
+		return false;
+	memset (kva + read_bytes, 0, zero_bytes);
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -757,11 +778,23 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
+		/* prj3 - Anonymous Page, yeopto */
+		struct segment *segment = malloc(sizeof(struct segment));
+		segment->file = file;
+		segment->ofs = ofs;
+		segment->read_bytes = page_read_bytes;
+		segment->zero_bytes = page_zero_bytes;
+		
+		/* prj3 - Anonymous Page, yeopto */
+		void *aux = segment;
+
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;
 
+		/* prj3 - Anonymous Page, yeopto */
+		ofs += page_read_bytes;
+		
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
@@ -780,7 +813,15 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-
+	
+	/* prj3 - Anonymous Page, yeopto */
+	vm_alloc_page_with_initializer(VM_ANON | VM_STACK, stack_bottom, 1, NULL, NULL);
+	success = vm_claim_page(stack_bottom);
+	/* prj3 - Anonymous Page, yeopto */
+	if (success) {
+		if_->rsp = USER_STACK; 
+	}
+	
 	return success;
 }
 #endif /* VM */

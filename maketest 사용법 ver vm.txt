@@ -1,0 +1,9 @@
+pintos 실행 arguments들이 vm에서 작동되도록 되어있는거라 vm에서만 될듯 합니당 ㅠ
+
+***** 실행방법 *****
+vm 경로 안에서 make(build목적) 후 make test/{test이름} 실행
+
+가능한 test이름 list
+- project이름 (userprog, vm, filesys, threads)
+- test파일 맨 앞 category (ex. args, fork, exec ...)
+- 이외 명시적인 test파일 이름 (ex. args-none ...)
