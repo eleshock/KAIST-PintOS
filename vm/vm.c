@@ -321,7 +321,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 				return false;
 			break;
 		case VM_ANON:
-			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, src_p) && \
+			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, src_p) || \
 			 !vm_claim_page(src_p->va))
 			 	return false;
 			break;
