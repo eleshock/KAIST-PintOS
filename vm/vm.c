@@ -247,6 +247,10 @@ vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
 	uint64_t *pml4 = thread_current()->pml4;
 
+	/* prj3 - Anonymous Page, yeopto */
+	if (page->operations->type == VM_UNINIT && VM_SUBTYPE(page->uninit.type) == VM_STACK)
+		memset(frame->kva, 0, PGSIZE);
+
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
