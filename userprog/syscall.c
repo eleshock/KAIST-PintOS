@@ -20,6 +20,8 @@
 #include "devices/input.h"			// for 'input_getc()'
 #include "kernel/stdio.h"
 
+#include "vm/vm.h"
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 void halt (void);						/*** GrilledSalmon ***/
@@ -145,7 +147,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 void 
 check_address(void *vaddr) 
 {
-	if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
+	// if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
+	if (!spt_find_page(&thread_current()->spt, vaddr))
     {
 	    exit(-1); // terminated
     }
@@ -244,7 +247,7 @@ void seek (int fd, unsigned position)
 int read (int fd, void *buffer, unsigned size)
 {
     check_address(buffer);
-    
+
     uint64_t read_len = 0;              // 읽어낸 길이
 
 	if (fd == 0) { 			            /* fd로 stdin이 들어온 경우 */
@@ -260,7 +263,6 @@ int read (int fd, void *buffer, unsigned size)
         }
         *buffer_cursor = '\0';
         lock_release(&filesys_lock);
-
         return read_len;
 	}
 
@@ -269,11 +271,9 @@ int read (int fd, void *buffer, unsigned size)
     if (now_file == NULL || fd == 1){   // fd로 stdout이 들어왔거나 file이 없는 경우
         return -1;
     }
-
     lock_acquire(&filesys_lock);
     read_len = file_read(now_file, buffer, size);
     lock_release(&filesys_lock);
-	
     return read_len;
 }
 

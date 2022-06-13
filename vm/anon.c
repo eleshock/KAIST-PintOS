@@ -62,6 +62,6 @@ anon_destroy (struct page *page) {
 	/* eleshock */
 	struct frame *fr = page->frame;
 	ft_delete(fr);
-	palloc_free_page(fr->kva);
+	// palloc_free_page(fr->kva); // pml4 destroy에서 알아서 해줌
 	free(fr);
 }

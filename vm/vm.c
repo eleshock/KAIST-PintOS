@@ -336,7 +336,6 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	while (hash_next(&i))
 	{
 		struct page *src_p = hash_entry(hash_cur(&i), struct page, hash_elem);
-		
 		switch (src_p->operations->type)
 		{
 		case VM_UNINIT:
@@ -344,9 +343,8 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 				return false;
 			break;
 		case VM_ANON:
-			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, src_p) || \
-			 !vm_claim_page(src_p->va))
-			 	return false;
+			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, src_p) || !vm_claim_page(src_p->va))
+				return false;
 			break;
 		case VM_FILE:
 			break;
@@ -354,6 +352,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 			break;
 		}
 	}
+	return true; // debug success - true return 누가 안했냐... jack
 }
 
 /* eleshock */

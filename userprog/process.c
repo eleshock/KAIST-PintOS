@@ -73,9 +73,9 @@ process_create_initd (const char *file_name) {
 /* A thread function that launches first user process. */
 static void
 initd (void *f_name) {
-#ifdef VM
-	supplemental_page_table_init (&thread_current ()->spt);
-#endif
+// #ifdef VM
+// 	supplemental_page_table_init (&thread_current ()->spt); // debugging sanori - 여기서 초기화하니까 exec에서 cleanup 하면서 날아가네..? 일단 죽여놓고 뒤에서 초기화..
+// #endif
   
 	process_init ();
 
@@ -164,6 +164,7 @@ __do_fork (void *aux) {
 		goto error;
 
 	process_activate (curr_thread);
+
 #ifdef VM
 	supplemental_page_table_init (&curr_thread->spt);
 	if (!supplemental_page_table_copy (&curr_thread->spt, &parent->spt))
@@ -226,6 +227,11 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
+
+#ifdef VM
+	supplemental_page_table_init (&thread_current ()->spt);
+#endif
+
 	/* And then load the binary */
 	success = load (args_parsed[0], &_if);
 

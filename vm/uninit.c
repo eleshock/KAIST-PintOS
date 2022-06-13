@@ -67,7 +67,7 @@ uninit_destroy (struct page *page) {
 	 * TODO: If you don't have anything to do, just return. */
 	/* prj3 - Anonymous Page, yeopto */
 	if (page->frame != NULL) {
-		palloc_free_page(page->frame->kva);
+		// palloc_free_page(page->frame->kva); // pml4 destroy에서 알아서 해줌
 		ft_delete(page->frame);
 		free(page->frame);
 	}
