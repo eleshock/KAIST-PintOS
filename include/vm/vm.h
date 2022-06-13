@@ -73,6 +73,13 @@ struct page {
 	};
 };
 
+/* prj3 - Anonymous Page, yeopto */
+struct segment {
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+};
+
 /* The representation of "frame" */
 struct frame {
 	void *kva;
@@ -140,5 +147,7 @@ void ft_insert(struct frame *fr);
 struct frame *ft_delete(struct frame *fr);
 /* eleshock */
 void page_destructor (struct hash_elem *e, void *aux);
+
+
 
 #endif  /* VM_VM_H */

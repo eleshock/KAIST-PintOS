@@ -335,15 +335,22 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 	hash_first(&i, &src->ht);
 	while (hash_next(&i))
 	{
+		void *aux = NULL;
 		struct page *src_p = hash_entry(hash_cur(&i), struct page, hash_elem);
 		switch (src_p->operations->type)
 		{
 		case VM_UNINIT:
-			if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, src_p->uninit.aux))
+			if (src_p->uninit.aux != NULL && VM_SUBTYPE(src_p->uninit.type) == VM_SEGMENT)
+			{
+				aux = malloc(sizeof(struct segment));
+				memcpy(aux, src_p->uninit.aux, sizeof(struct segment));
+			}
+			if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, aux))
 				return false;
 			break;
 		case VM_ANON:
-			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, src_p) || !vm_claim_page(src_p->va))
+			aux = src_p;
+			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, aux) || !vm_claim_page(src_p->va))
 				return false;
 			break;
 		case VM_FILE:

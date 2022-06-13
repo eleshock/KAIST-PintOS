@@ -71,7 +71,7 @@ uninit_destroy (struct page *page) {
 		ft_delete(page->frame);
 		free(page->frame);
 	}
-	if (uninit->aux != NULL) {
+	if (uninit->aux != NULL && VM_SUBTYPE(uninit->type) == VM_SEGMENT) { // debugging sanori - 음... initialize 안되었지만 lazy load 되려는 애들은 free 해줘야될거같은데... 왜 안될까.......
 		free(uninit->aux);
-	} 
+	}
 }
