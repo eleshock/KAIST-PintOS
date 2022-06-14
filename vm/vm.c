@@ -201,9 +201,9 @@ vm_get_frame (void) {
 
 	/* eleshock */
 	void *pp = palloc_get_page(PAL_USER);
-	frame = malloc(sizeof(struct frame));
-	if (frame == NULL)
+	if (pp == NULL)
 		PANIC("todo");
+	frame = malloc(sizeof(struct frame));
 	frame->kva = pp;
 	frame->page = NULL;
 
@@ -219,6 +219,10 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
+	/* prj3 Stack Growth, yeopto */
+	if (addr > USER_STACK - (1 << 20)) {
+		vm_alloc_page_with_initializer(VM_ANON | VM_STACK, addr, 1, NULL, NULL);
+	}
 }
 
 /* Handle the fault on write_protected page */
