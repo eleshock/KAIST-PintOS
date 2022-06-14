@@ -84,6 +84,9 @@ syscall_handler (struct intr_frame *f UNUSED)
     int64_t syscall_case = f->R.rax;
     ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인 
     
+    /* eleshock */
+    thread_current()->if_rsp = f->rsp;
+
 	switch (syscall_case)
     {
         case SYS_HALT :

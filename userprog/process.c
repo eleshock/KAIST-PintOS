@@ -817,7 +817,7 @@ setup_stack (struct intr_frame *if_) {
 	/* TODO: Your code goes here */
 	
 	/* prj3 - Anonymous Page, yeopto */
-	vm_alloc_page_with_initializer(VM_ANON | VM_STACK, stack_bottom, 1, NULL, NULL);
+	vm_alloc_page(VM_ANON | VM_STACK, stack_bottom, 1);
 	success = vm_claim_page(stack_bottom);
 	/* prj3 - Anonymous Page, yeopto */
 	if (success) {
