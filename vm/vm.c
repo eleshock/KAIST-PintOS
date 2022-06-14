@@ -200,12 +200,15 @@ vm_get_frame (void) {
 	struct frame *frame = NULL;
 
 	/* eleshock */
-	void *pp = palloc_get_page(PAL_USER);
-	frame = malloc(sizeof(struct frame));
-	if (frame == NULL)
+	void *pp = palloc_get_page(PAL_USER | PAL_ZERO);
+	if (pp != NULL) {
+		frame = malloc(sizeof(struct frame));
+		frame->kva = pp;
+		frame->page = NULL;
+		ft_insert(frame);
+	} else {
 		PANIC("todo");
-	frame->kva = pp;
-	frame->page = NULL;
+	}
 
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
