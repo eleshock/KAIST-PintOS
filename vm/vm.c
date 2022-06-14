@@ -201,12 +201,13 @@ vm_get_frame (void) {
 
 	/* eleshock */
 	void *pp = palloc_get_page(PAL_USER);
-	if (pp == NULL) // eleshock - 어림없는 패닉
+	if (pp == NULL)
 		PANIC("todo");
 
 	frame = malloc(sizeof(struct frame));
 	frame->kva = pp;
 	frame->page = NULL;
+  
 
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
