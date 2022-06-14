@@ -8,6 +8,8 @@
 #include "threads/mmu.h"
 #include "intrinsic.h"
 
+/* 페이지 테이블 관리 코드*/
+
 static uint64_t *
 pgdir_walk (uint64_t *pdp, const uint64_t va, int create) {
 	int idx = PDX (va);

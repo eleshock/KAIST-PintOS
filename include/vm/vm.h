@@ -2,6 +2,9 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include "lib/kernel/hash.h"
+#include "threads/synch.h"
+#include "threads/malloc.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -11,7 +14,7 @@ enum vm_type {
 	/* page that realated to the file */
 	VM_FILE = 2,
 	/* page that hold the page cache, for project 4 */
-	VM_PAGE_CACHE = 3,
+	VM_PAGE_CACHE = 3, // 이건 project 4 때
 
 	/* Bit flags to store state */
 
@@ -19,6 +22,10 @@ enum vm_type {
 	 * markers, until the value is fit in the int. */
 	VM_MARKER_0 = (1 << 3),
 	VM_MARKER_1 = (1 << 4),
+
+	/* Jack */
+	VM_STACK = (1 << 5),
+	VM_SEGMENT = (1 << 6),
 
 	/* DO NOT EXCEED THIS VALUE. */
 	VM_MARKER_END = (1 << 31),
@@ -35,6 +42,7 @@ struct page_operations;
 struct thread;
 
 #define VM_TYPE(type) ((type) & 7)
+#define VM_SUBTYPE(type) ((type) & ~7) // Jack
 
 /* The representation of "page".
  * This is kind of "parent class", which has four "child class"es, which are
@@ -45,9 +53,15 @@ struct page {
 	void *va;              /* Address in terms of user space */
 	struct frame *frame;   /* Back reference for frame */
 
+	/* prj3-memory management, yeopto */
+	struct hash_elem hash_elem;
+
 	/* Your implementation */
 
+	/* eleshock */
+	bool writable;
 	/* Per-type data are binded into the union.
+
 	 * Each function automatically detects the current union */
 	union {
 		struct uninit_page uninit;
@@ -59,10 +73,27 @@ struct page {
 	};
 };
 
+/* prj3 - Anonymous Page, yeopto */
+struct segment {
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+};
+
 /* The representation of "frame" */
 struct frame {
 	void *kva;
 	struct page *page;
+
+	// Jack
+	struct list_elem f_elem;
+};
+
+/* Jack */
+/* Frame table */
+struct frame_table {
+	struct list table;
+	struct lock lock;
 };
 
 /* The function table for page operations.
@@ -83,8 +114,10 @@ struct page_operations {
 
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
- * All designs up to you for this. */
+ * All designs up to you for this. */ 
 struct supplemental_page_table {
+	/* prj3-memory management, yeopto */
+	struct hash ht;
 };
 
 #include "threads/thread.h"
@@ -108,5 +141,13 @@ bool vm_alloc_page_with_initializer (enum vm_type type, void *upage,
 void vm_dealloc_page (struct page *page);
 bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
+
+void ft_init(void);
+void ft_insert(struct frame *fr);
+struct frame *ft_delete(struct frame *fr);
+/* eleshock */
+void page_destructor (struct hash_elem *e, void *aux);
+
+
 
 #endif  /* VM_VM_H */

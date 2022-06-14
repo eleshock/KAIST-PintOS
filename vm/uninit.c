@@ -65,4 +65,13 @@ uninit_destroy (struct page *page) {
 	struct uninit_page *uninit UNUSED = &page->uninit;
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	/* prj3 - Anonymous Page, yeopto */
+	if (page->frame != NULL) {
+		// palloc_free_page(page->frame->kva); // pml4 destroy에서 알아서 해줌
+		ft_delete(page->frame);
+		free(page->frame);
+	}
+	if (uninit->aux != NULL && VM_SUBTYPE(uninit->type) == VM_SEGMENT) { // debugging sanori - 음... initialize 안되었지만 lazy load 되려는 애들은 free 해줘야될거같은데... 왜 안될까.......
+		free(uninit->aux);
+	}
 }

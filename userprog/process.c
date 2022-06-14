@@ -73,9 +73,9 @@ process_create_initd (const char *file_name) {
 /* A thread function that launches first user process. */
 static void
 initd (void *f_name) {
-#ifdef VM
-	supplemental_page_table_init (&thread_current ()->spt);
-#endif
+// #ifdef VM
+// 	supplemental_page_table_init (&thread_current ()->spt); // debugging sanori - 여기서 초기화하니까 exec에서 cleanup 하면서 날아가네..? 일단 죽여놓고 뒤에서 초기화..
+// #endif
   
 	process_init ();
 
@@ -123,7 +123,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 
 	/* 3. TODO: Allocate new PAL_USER page for the child and set result to
 	 *    TODO: NEWPAGE. */
-	newpage = palloc_get_page(PAL_USER);
+	newpage = palloc_get_page(PAL_USER); // debugging sanori - 이거 get frame으로 나중에 바꿔줘야할듯
 
 	/* 4. TODO: Duplicate parent's page to the new page and
 	 *    TODO: check whether parent's page is writable or not (set WRITABLE
@@ -164,7 +164,9 @@ __do_fork (void *aux) {
 		goto error;
 
 	process_activate (curr_thread);
+
 #ifdef VM
+	curr_thread->running_file = file_duplicate(parent->running_file); // Jack
 	supplemental_page_table_init (&curr_thread->spt);
 	if (!supplemental_page_table_copy (&curr_thread->spt, &parent->spt))
 		goto error;
@@ -226,6 +228,11 @@ process_exec (void *f_name) {
 
 	/* We first kill the current context */
 	process_cleanup ();
+
+#ifdef VM
+	supplemental_page_table_init (&thread_current ()->spt);
+#endif
+
 	/* And then load the binary */
 	success = load (args_parsed[0], &_if);
 
@@ -313,7 +320,6 @@ process_wait (tid_t child_tid UNUSED) {
 	// debugging genie : 사실, 이미 자식이 죽어있다면 exit_sema를 1로 올려주었을거라 확인문 없이 sema down만 해도 문제는 없을듯함.
 	while (!child->is_exit)		
 		sema_down(&(child->exit_sema));
-	
 	ret_exit_status = child->exit_status;
 	remove_child_process(child);
 
@@ -726,6 +732,24 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+
+	/* Jack */
+	struct segment *load_src = aux;
+	struct file *file = thread_current()->running_file;
+	off_t ofs = load_src->ofs;
+	uint32_t read_bytes = load_src->read_bytes;
+	uint32_t zero_bytes = load_src->zero_bytes;
+	void *kva = page->frame->kva;
+	
+	// printf("\n in lazy_load_segment\n");
+	// printf("\n current page va : %p\n", page->va);
+	// printf("\nfile_read_at(%p, %p, %d, %d)\n", file, kva, read_bytes, ofs);
+	if (file_read_at(file, kva, read_bytes, ofs) != (int) read_bytes)
+		return false;
+	memset (kva + read_bytes, 0, zero_bytes);
+	
+	free(load_src);
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -757,11 +781,22 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
-		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
+		/* prj3 - Anonymous Page, yeopto */
+		struct segment *segment = malloc(sizeof(struct segment));
+		segment->ofs = ofs;
+		segment->read_bytes = page_read_bytes;
+		segment->zero_bytes = page_zero_bytes;
+		
+		/* prj3 - Anonymous Page, yeopto */
+		void *aux = segment;
+
+		if (!vm_alloc_page_with_initializer (VM_ANON | VM_SEGMENT, upage,
 					writable, lazy_load_segment, aux))
 			return false;
 
+		/* prj3 - Anonymous Page, yeopto */
+		ofs += page_read_bytes;
+		
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
@@ -780,7 +815,15 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-
+	
+	/* prj3 - Anonymous Page, yeopto */
+	vm_alloc_page(VM_ANON | VM_STACK, stack_bottom, 1);
+	success = vm_claim_page(stack_bottom);
+	/* prj3 - Anonymous Page, yeopto */
+	if (success) {
+		if_->rsp = USER_STACK; 
+	}
+	
 	return success;
 }
 #endif /* VM */

@@ -11,6 +11,10 @@
 #include "threads/vaddr.h"
 #include "devices/timer.h"
 #include "intrinsic.h"
+
+/* eleshock */
+#include "userprog/exception.h"
+
 #ifdef USERPROG
 #include "userprog/gdt.h"
 #endif
@@ -333,6 +337,11 @@ void
 intr_handler (struct intr_frame *frame) {
 	bool external;
 	intr_handler_func *handler;
+	
+	/* eleshock */
+	if ((frame->error_code & PF_U) != 0) {
+		thread_current()->if_rsp = frame->rsp;
+	}
 
 	/* External interrupts are special.
 	   We only handle one at a time (so interrupts must be off)
