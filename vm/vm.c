@@ -221,8 +221,8 @@ vm_get_frame (void) {
 static void
 vm_stack_growth (void *addr UNUSED) {
 	/* prj3 Stack Growth, yeopto */
-	if (addr > USER_STACK - (1 << 20)) {
-		vm_alloc_page_with_initializer(VM_ANON | VM_STACK, addr, 1, NULL, NULL);
+	if (addr >= (void *)(USER_STACK - (1 << 20))) {
+		vm_alloc_page(VM_ANON | VM_STACK, addr, 1);
 	}
 }
 
