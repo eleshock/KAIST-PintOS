@@ -244,7 +244,8 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	// read only page에 접근한 경우는 real fault
 	if (!not_present) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
 
-	if (((void *)(user? f->rsp: thread_current()->if_rsp)) - addr == 0x8)
+	void* rsp = (void *)(user? f->rsp: thread_current()->if_rsp);
+	if (rsp - addr == 0x8 || ((void *)USER_STACK > addr) && (addr > rsp))
 		vm_stack_growth(addr);
 
 	// 유효한 접근인지 spt_find를 통해 확인하고 유호하다면 처리, 아니면 return false

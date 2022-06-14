@@ -151,10 +151,8 @@ void
 check_address(void *vaddr) 
 {
 	// if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
-	if (!spt_find_page(&thread_current()->spt, vaddr))
-    {
-	    exit(-1); // terminated
-    }
+    if (!is_user_vaddr(vaddr) || vaddr == NULL)
+        exit(-1); // terminated
 }
 
 /*** Jack ***/

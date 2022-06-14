@@ -129,11 +129,10 @@ page_fault (struct intr_frame *f) {
 	   that caused the fault (that's f->rip). */
 
 	fault_addr = (void *) rcr2();
-
+	
 	/* Turn interrupts back on (they were only off so that we could
 	   be assured of reading CR2 before it changed). */
 	intr_enable ();
-
 
 	/* Determine cause. */
 	not_present = (f->error_code & PF_P) == 0;
