@@ -94,8 +94,7 @@ ALL_USERPROG += $(MULTI)
 ALL_USERPROG += $(ROX)
 ALL_USERPROG += $(BAD)
 
-userprog: args create open close read write fork exec wait multi rox bad
-	make check_result/ALL_USERPROG
+
 
 check_result/%:
 	@for d in $($*); do			\
@@ -105,6 +104,9 @@ check_result/%:
 			echo "FAIL $$d";			\
 		fi;						\
 	done
+
+userprog: args create open close read write fork exec wait multi rox bad
+	make check_result/ALL_USERPROG
 
 args: args-none args-single args-multiple args-many args-dbl-space
 	make check_result/ARGS

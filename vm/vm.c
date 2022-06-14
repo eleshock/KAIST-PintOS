@@ -201,9 +201,10 @@ vm_get_frame (void) {
 
 	/* eleshock */
 	void *pp = palloc_get_page(PAL_USER);
-	frame = malloc(sizeof(struct frame));
-	if (frame == NULL)
+	if (pp == NULL) // eleshock - 어림없는 패닉
 		PANIC("todo");
+
+	frame = malloc(sizeof(struct frame));
 	frame->kva = pp;
 	frame->page = NULL;
 
@@ -236,9 +237,13 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Your code goes here */
 
 	/* Jack */
-	// if (!not_present || !is_user_vaddr(addr) || addr == NULL) return false; // debugging sanori - read/write 확인할 일이 있을까?
+	// read only page에 접근한 경우는 real fault
 	if (!not_present) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
 
+	if (((void *)(user? f->rsp: thread_current()->if_rsp)) - addr == 0x8)
+		vm_stack_growth(addr);
+
+	// 유효한 접근인지 spt_find를 통해 확인하고 유호하다면 처리, 아니면 return false
 	return ((page = spt_find_page(spt, addr)) == NULL)? false : vm_do_claim_page (page);
 }
 
