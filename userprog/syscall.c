@@ -20,7 +20,10 @@
 #include "devices/input.h"			// for 'input_getc()'
 #include "kernel/stdio.h"
 
+/* eleshock */
+#include "vm/file.h"
 #include "vm/vm.h"
+
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -46,6 +49,11 @@ int exec (const char *cmd_line);                    /*** Jack ***/
 pid_t fork(const char *thread_name, struct intr_frame *intr_f);
 
 static struct lock filesys_lock;                    /*** GrilledSalmon ***/
+
+/* eleshock */
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap (void *addr);
+
 
 /* System call.
  *
@@ -143,7 +151,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         
         case SYS_CLOSE :
             close(f->R.rdi);
-            break;        
+            break;  
+
+        case SYS_MMAP : // eleshock
+            f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.rcx, f->R.r8);
+            break;
+
+        case SYS_MUNMAP : // eleshock
+            munmap(f->R.rdi);
+            break;
     }
 }
 
@@ -339,3 +355,18 @@ pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 
     return (child == TID_ERROR) ? TID_ERROR : child; 
 }
 
+
+/* eleshock */
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset)
+{
+    check_address(addr);
+    struct file *now_file = process_get_file(fd);
+    return now_file != NULL? do_mmap(addr, length, writable, now_file, offset): NULL;
+}
+
+/* eleshock */
+void munmap (void *addr)
+{
+    check_address(addr);
+    do_munmap(addr);
+}
