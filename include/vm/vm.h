@@ -5,6 +5,7 @@
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "threads/vaddr.h"
 
 enum vm_type {
 	/* page not initialized */
