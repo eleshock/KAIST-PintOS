@@ -64,28 +64,29 @@ lazy_load_file (struct page *page, void *aux) {
 	return true;
 }
 
+/* prj 3 memory mapped files - yeopto */
 /* Do the mmap */
 void *
-do_mmap (void *addr, size_t length, int writable,
-		struct file *file_, off_t offset) {
-	/* prj 3 memory mapped files - yeopto */
-	if (length != 0 || pg_ofs(addr) == 0) return NULL;
+do_mmap (void *_addr, size_t length, int writable,
+		struct file *_file, off_t _offset) {
+	
+	if (length == 0 || pg_ofs(addr) != 0 || file_length(_file) <= offset) return NULL;
 
 	size_t read_bytes = length;
-	size_t zero_bytes = PGSIZE - pg_ofs(addr);
+	size_t zero_bytes = PGSIZE - pg_ofs(read_bytes);
 	ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
-	
-	void *addr_temp = addr;
-	off_t offset_temp = offset;
-	uint32_t count;
-	uint32_t now_page = 1;
-	struct file *file = file_reopen(file_);
-	
-	if (spt_find_page(&thread_current->spt, addr) == NULL) {
-		return NULL;
-	}
 
-	count = (read_bytes + zero_bytes) / PGSIZE;
+	struct file *file = file_reopen(_file);
+	void *addr = _addr;
+	off_t offset = _offset;
+	uint32_t page_count = (read_bytes + zero_bytes) / PGSIZE;
+	uint32_t now_page = 1;
+	uint32_t *open_count = malloc(sizeof(uint32_t));
+	*open_count = page_count;
+
+	for (int i = 0; i < page_count; i++)
+		if (spt_find_page(&thread_current->spt, addr + i * PGSIZE) != NULL)
+			return NULL;
 	
 	while (read_bytes > 0 || zero_bytes > 0) {
 
@@ -94,25 +95,24 @@ do_mmap (void *addr, size_t length, int writable,
 
 		struct file_page *file_page = calloc(1, sizeof(struct file_page));
 		file_page->m_file = file;
-		file_page->ofs = offset_temp;
+		file_page->ofs = offset;
 		file_page->read_bytes = page_read_bytes;
 		file_page->zero_bytes = page_zero_bytes;
-		file_page->open_count = malloc(sizeof(uint32_t));
-		*(file_page->open_count) = count;
+		file_page->open_count = open_count;
 		file_page->now_page = now_page++;
 		
 		void *aux = file_page;
 
 		if (!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_file, aux))
-			return false;
+			return NULL;
 		
-		offset_temp += page_read_bytes;
+		offset += page_read_bytes;
 		
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
-		addr_temp += PGSIZE;
+		addr += PGSIZE;
 	}
-	return addr;
+	return _addr;
 }
 
 /* Do the munmap */
