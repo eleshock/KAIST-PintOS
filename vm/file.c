@@ -9,9 +9,6 @@ static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
 static void file_backed_destroy (struct page *page);
 
-static void file_backed_link(struct page *prev, struct page *curr);
-static struct page *file_backed_next(struct page *page);
-
 /* DO NOT MODIFY this struct */
 static const struct page_operations file_ops = {
 	.swap_in = file_backed_swap_in,
