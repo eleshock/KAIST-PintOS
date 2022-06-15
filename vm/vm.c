@@ -327,7 +327,7 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 /* Jack */
 /* Copy page function for spt copy */
 bool 
-page_copy (struct page *page, void *aux)
+copy_page (struct page *page, void *aux)
 {
 	struct page *parent_page = aux;
 	void *parent_kva = parent_page->frame->kva;
@@ -350,20 +350,33 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		switch (src_p->operations->type)
 		{
 		case VM_UNINIT:
-			if (src_p->uninit.aux != NULL && VM_SUBTYPE(src_p->uninit.type) == VM_SEGMENT)
+			if (src_p->uninit.aux != NULL)
 			{
-				aux = malloc(sizeof(struct segment));
-				memcpy(aux, src_p->uninit.aux, sizeof(struct segment));
+				if (VM_SUBTYPE(src_p->uninit.type) == VM_SEGMENT)
+				{
+					aux = malloc(sizeof(struct segment));
+					memcpy(aux, src_p->uninit.aux, sizeof(struct segment));
+					if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, aux))
+						return false;
+				}
+				else if (VM_TYPE(src_p->uninit.type) == VM_FILE)
+				{
+					aux = malloc(sizeof(struct file_page));
+					memcpy(aux, src_p->uninit.aux, sizeof(struct file_page));
+					if (!vm_alloc_page_with_initializer(src_p->uninit.type | VM_FINIT, src_p->va, src_p->writable, src_p->uninit.init, aux))
+						return false;
+				}
 			}
-			if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, aux))
-				return false;
 			break;
 		case VM_ANON:
 			aux = src_p;
-			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, aux) || !vm_claim_page(src_p->va))
+			if (!vm_alloc_page_with_initializer(VM_ANON | src_p->anon.sub_type, src_p->va, src_p->writable, copy_page, aux) || !vm_claim_page(src_p->va))
 				return false;
 			break;
 		case VM_FILE:
+			aux = src_p;
+			if (!vm_alloc_page_with_initializer(VM_FILE | VM_FCOPY, src_p->va, src_p->writable, copy_page, aux) || !vm_claim_page(src_p->va))
+				return false;
 			break;
 		default:
 			break;
