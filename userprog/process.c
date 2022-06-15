@@ -151,7 +151,7 @@ __do_fork (void *aux) {
 	struct intr_frame if_;
 	struct thread *curr_thread = thread_current ();
     /*** hyeRexx ***/
-	struct thread *parent = curr_thread->parent; // perent thread implecated
+	struct thread *parent = curr_thread->parent; // parent thread implecated
 	struct intr_frame *parent_if = aux; // parent aux implecated
 	// bool succ = true;
 

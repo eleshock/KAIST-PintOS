@@ -6,6 +6,7 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "threads/mmu.h"
+#include "threads/vaddr.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -27,6 +28,10 @@ enum vm_type {
 	/* Jack */
 	VM_STACK = (1 << 5),
 	VM_SEGMENT = (1 << 6),
+
+	/* eleshock */
+	VM_FCOPY = (1 << 7), // for VM FILE COPY
+	VM_FINIT = (1 << 8), // for VM FILE INIT COPY
 
 	/* DO NOT EXCEED THIS VALUE. */
 	VM_MARKER_END = (1 << 31),

@@ -6,7 +6,14 @@
 struct page;
 enum vm_type;
 
-struct file_page {
+struct file_page {		// swap in/out, destroy시 필요한 data 추가
+	struct file *m_file; 
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+	
+	uint32_t *open_count;
+	uint32_t now_page;
 };
 
 void vm_file_init (void);
