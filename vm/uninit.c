@@ -71,7 +71,23 @@ uninit_destroy (struct page *page) {
 		ft_delete(page->frame);
 		free(page->frame);
 	}
-	if (uninit->aux != NULL && VM_SUBTYPE(uninit->type) == VM_SEGMENT) { // debugging sanori - 음... initialize 안되었지만 lazy load 되려는 애들은 free 해줘야될거같은데... 왜 안될까.......
-		free(uninit->aux);
+
+	/* Jack */
+	// VM_FILE인 경우에도 aux free 하도록 수정
+	if (uninit->aux != NULL) { // debugging sanori - 음... initialize 안되었지만 lazy load 되려는 애들은 free 해줘야될거같은데... 왜 안될까.......
+		enum vm_type main_type = VM_TYPE(uninit->type);
+		enum vm_type sub_type = VM_SUBTYPE(uninit->type);
+		if (main_type == VM_ANON && sub_type == VM_SEGMENT)
+			free(uninit->aux);
+		else if (main_type == VM_FILE)
+		{
+			int *oc = uninit->aux->open_count;
+			if (--(*oc) == 0)
+			{
+				file_close(uninit->aux->m_file);
+				free(oc);
+			}
+			free(uninit->aux);
+		}
 	}
 }

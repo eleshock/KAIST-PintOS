@@ -5,6 +5,7 @@
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "threads/mmu.h"
 #include "threads/vaddr.h"
 
 enum vm_type {
@@ -58,10 +59,13 @@ struct page {
 	void *va;              /* Address in terms of user space */
 	struct frame *frame;   /* Back reference for frame */
 
+	/* Your implementation */
+
 	/* prj3-memory management, yeopto */
 	struct hash_elem hash_elem;
 
-	/* Your implementation */
+	/* prj3-memory mapped files, jack */
+	uint64_t *pml4;
 
 	/* eleshock */
 	bool writable;

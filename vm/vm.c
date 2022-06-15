@@ -80,6 +80,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		upage = pg_round_down(upage);
 		uninit_new(new_page, upage, init, type, aux, initializer);
 		new_page->writable = writable;
+		new_page->pml4 = thread_current()->pml4;
 
 		/* TODO: Insert the page into the spt. */
 		spt_insert_page(spt, new_page);
@@ -242,7 +243,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* Jack */
 	// read only page에 접근한 경우는 real fault
-	if (!not_present) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
+	if (!not_present && write) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
 
 	void* rsp = (void *)(user? f->rsp: thread_current()->if_rsp);
 	if (rsp - addr == 0x8 || ((void *)USER_STACK > addr) && (addr > rsp))
