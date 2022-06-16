@@ -243,7 +243,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* Jack */
 	// read only page에 접근한 경우는 real fault
-	if (!not_present && write) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
+	if (!not_present) return false; // debugging sanori - 어차피 kernel addr 들어왔거나 NULL 들어오면 spt_find_page에서 걸러지지 않을까?
 
 	void* rsp = (void *)(user? f->rsp: thread_current()->if_rsp);
 	if (rsp - addr == 0x8 || ((void *)USER_STACK > addr) && (addr > rsp))
@@ -294,7 +294,7 @@ vm_do_claim_page (struct page *page) {
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	if (!pml4_set_page(pml4, page->va, frame->kva, page->writable)) // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯 - page에 write 관련 필드가 필요할까?
 		return false;
-	
+
 	return swap_in (page, frame->kva);
 }
 
@@ -367,6 +367,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 					if (!vm_alloc_page_with_initializer(src_p->uninit.type | VM_FINIT, src_p->va, src_p->writable, src_p->uninit.init, aux))
 						return false;
 				}
+				// debugging sanori - NULL인 경우도 있나?
 			}
 			break;
 		case VM_ANON:

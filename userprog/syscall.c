@@ -154,7 +154,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;  
 
         case SYS_MMAP : // eleshock
-            f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.rcx, f->R.r8);
+            f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8); // debugging sanori - 인자 이거 맞음..?
             break;
 
         case SYS_MUNMAP : // eleshock
@@ -365,9 +365,9 @@ pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 
 /* eleshock */
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset)
 {
-    check_address(addr);
     struct file *now_file = process_get_file(fd);
-    return now_file != NULL? do_mmap(addr, length, writable, now_file, offset): NULL;
+    bool chk_addr = (addr != NULL) && is_user_vaddr(addr); // debug
+    return now_file && chk_addr? do_mmap(addr, length, writable, now_file, offset): NULL;
 }
 
 /* eleshock */

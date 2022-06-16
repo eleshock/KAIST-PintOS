@@ -81,10 +81,11 @@ uninit_destroy (struct page *page) {
 			free(uninit->aux);
 		else if (main_type == VM_FILE)
 		{
-			int *oc = uninit->aux->open_count;
+			struct file_page *fpage = uninit->aux;
+			uint32_t *oc = fpage->open_count;
 			if (--(*oc) == 0)
 			{
-				file_close(uninit->aux->m_file);
+				file_close(fpage->m_file);
 				free(oc);
 			}
 			free(uninit->aux);
