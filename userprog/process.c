@@ -151,7 +151,7 @@ __do_fork (void *aux) {
 	struct intr_frame if_;
 	struct thread *curr_thread = thread_current ();
     /*** hyeRexx ***/
-	struct thread *parent = curr_thread->parent; // perent thread implecated
+	struct thread *parent = curr_thread->parent; // parent thread implecated
 	struct intr_frame *parent_if = aux; // parent aux implecated
 	// bool succ = true;
 
@@ -353,9 +353,9 @@ process_exit (void) {
 	/* Close running file of current thread */
 	if (curr->running_file)
 	{
-		file_lock_acquire(curr->running_file);
+		// file_lock_acquire(&curr->running_file);
 		file_close(curr->running_file);
-		file_lock_release(curr->running_file);
+		// file_lock_release(&curr->running_file); // Jack - inode는 공유자원... Lock이 필요하다 생각해서 넣었지만,, 맨 마지막으로 파일이 닫히면 inode 사라지면서 lock도 사라져 오히려 문제 발생...
 	}
 }
 
@@ -486,14 +486,14 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* renew running file of current thread */
 	if (t->running_file)
 	{
-		file_lock_acquire(t->running_file);
+		// file_lock_acquire(t->running_file);
 		file_close(t->running_file);
-		file_lock_release(t->running_file);
+		// file_lock_release(t->running_file);
 	}
-	file_lock_acquire(file);
+	// file_lock_acquire(file);
 	t->running_file = file;
 	file_deny_write(file);
-	file_lock_release(file);
+	// file_lock_release(file); // Jack - inode는 공유자원... Lock이 필요하다 생각해서 넣었지만,, 맨 마지막으로 파일이 닫히면 inode 사라지면서 lock도 사라져 오히려 문제 발생...
 	
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

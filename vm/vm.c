@@ -80,6 +80,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		upage = pg_round_down(upage);
 		uninit_new(new_page, upage, init, type, aux, initializer);
 		new_page->writable = writable;
+		new_page->pml4 = thread_current()->pml4;
 
 		/* TODO: Insert the page into the spt. */
 		spt_insert_page(spt, new_page);
@@ -293,7 +294,7 @@ vm_do_claim_page (struct page *page) {
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	if (!pml4_set_page(pml4, page->va, frame->kva, page->writable)) // Jack // debugging sanori - 쓰기를 1로 두어야할지? 이 함수가 언제 쓰일때 다시 고민해볼 수 있을듯 - page에 write 관련 필드가 필요할까?
 		return false;
-	
+
 	return swap_in (page, frame->kva);
 }
 
@@ -327,7 +328,7 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 /* Jack */
 /* Copy page function for spt copy */
 bool 
-page_copy (struct page *page, void *aux)
+copy_page (struct page *page, void *aux)
 {
 	struct page *parent_page = aux;
 	void *parent_kva = parent_page->frame->kva;
@@ -350,20 +351,34 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		switch (src_p->operations->type)
 		{
 		case VM_UNINIT:
-			if (src_p->uninit.aux != NULL && VM_SUBTYPE(src_p->uninit.type) == VM_SEGMENT)
+			if (src_p->uninit.aux != NULL)
 			{
-				aux = malloc(sizeof(struct segment));
-				memcpy(aux, src_p->uninit.aux, sizeof(struct segment));
+				if (VM_SUBTYPE(src_p->uninit.type) == VM_SEGMENT)
+				{
+					aux = malloc(sizeof(struct segment));
+					memcpy(aux, src_p->uninit.aux, sizeof(struct segment));
+					if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, aux))
+						return false;
+				}
+				else if (VM_TYPE(src_p->uninit.type) == VM_FILE)
+				{
+					aux = malloc(sizeof(struct file_page));
+					memcpy(aux, src_p->uninit.aux, sizeof(struct file_page));
+					if (!vm_alloc_page_with_initializer(src_p->uninit.type | VM_FINIT, src_p->va, src_p->writable, src_p->uninit.init, aux))
+						return false;
+				}
+				// debugging sanori - NULL인 경우도 있나?
 			}
-			if (!vm_alloc_page_with_initializer(src_p->uninit.type, src_p->va, src_p->writable, src_p->uninit.init, aux))
-				return false;
 			break;
 		case VM_ANON:
 			aux = src_p;
-			if (!vm_alloc_page_with_initializer(src_p->operations->type | src_p->anon.sub_type, src_p->va, src_p->writable, page_copy, aux) || !vm_claim_page(src_p->va))
+			if (!vm_alloc_page_with_initializer(VM_ANON | src_p->anon.sub_type, src_p->va, src_p->writable, copy_page, aux) || !vm_claim_page(src_p->va))
 				return false;
 			break;
 		case VM_FILE:
+			aux = src_p;
+			if (!vm_alloc_page_with_initializer(VM_FILE | VM_FCOPY, src_p->va, src_p->writable, copy_page, aux) || !vm_claim_page(src_p->va))
+				return false;
 			break;
 		default:
 			break;

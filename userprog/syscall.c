@@ -20,7 +20,10 @@
 #include "devices/input.h"			// for 'input_getc()'
 #include "kernel/stdio.h"
 
+/* eleshock */
+#include "vm/file.h"
 #include "vm/vm.h"
+
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -46,6 +49,11 @@ int exec (const char *cmd_line);                    /*** Jack ***/
 pid_t fork(const char *thread_name, struct intr_frame *intr_f);
 
 static struct lock filesys_lock;                    /*** GrilledSalmon ***/
+
+/* eleshock */
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap (void *addr);
+
 
 /* System call.
  *
@@ -83,7 +91,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
     int64_t syscall_case = f->R.rax;
     ASSERT(is_user_vaddr(f->rsp)); // rsp 유저 영역에 있는지 확인 
-    
+
     /* eleshock */
     thread_current()->if_rsp = f->rsp;
 
@@ -143,7 +151,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         
         case SYS_CLOSE :
             close(f->R.rdi);
-            break;        
+            break;  
+
+        case SYS_MMAP : // eleshock
+            f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8); // debugging sanori - 인자 이거 맞음..?
+            break;
+
+        case SYS_MUNMAP : // eleshock
+            munmap(f->R.rdi);
+            break;
     }
 }
 
@@ -152,7 +168,7 @@ check_address(void *vaddr)
 {
 	// if (is_kernel_vaddr(vaddr) || vaddr == NULL || pml4_get_page (thread_current()->pml4, vaddr) == NULL)
     if (!is_user_vaddr(vaddr) || vaddr == NULL)
-        exit(-1); // terminated
+        exit(-1);
 }
 
 /*** Jack ***/
@@ -249,6 +265,11 @@ int read (int fd, void *buffer, unsigned size)
 {
     check_address(buffer);
 
+    // buffer가 read only 인 경우에는 종료시키도록 확인 - Jack Debug
+    struct page *p = spt_find_page(&thread_current()->spt, buffer);
+    if (p != NULL && !p->writable)
+        exit(-1);
+
     uint64_t read_len = 0;              // 읽어낸 길이
 
 	if (fd == 0) { 			            /* fd로 stdin이 들어온 경우 */
@@ -272,6 +293,7 @@ int read (int fd, void *buffer, unsigned size)
     if (now_file == NULL || fd == 1){   // fd로 stdout이 들어왔거나 file이 없는 경우
         return -1;
     }
+
     lock_acquire(&filesys_lock);
     read_len = file_read(now_file, buffer, size);
     lock_release(&filesys_lock);
@@ -339,3 +361,18 @@ pid_t fork (const char *thread_name, struct intr_frame *intr_f) // 파라미터 
     return (child == TID_ERROR) ? TID_ERROR : child; 
 }
 
+
+/* eleshock */
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset)
+{
+    struct file *now_file = process_get_file(fd);
+    bool chk_addr = (addr != NULL) && is_user_vaddr(addr); // debug
+    return now_file && chk_addr? do_mmap(addr, length, writable, now_file, offset): NULL;
+}
+
+/* eleshock */
+void munmap (void *addr)
+{
+    check_address(addr);
+    do_munmap(addr);
+}
