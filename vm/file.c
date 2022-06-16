@@ -9,6 +9,9 @@ static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
 static void file_backed_destroy (struct page *page);
 
+/* prj 3 Swap In/Out - yeopto */
+struct lock file_lock;
+
 /* DO NOT MODIFY this struct */
 static const struct page_operations file_ops = {
 	.swap_in = file_backed_swap_in,
@@ -18,8 +21,10 @@ static const struct page_operations file_ops = {
 };
 
 /* The initializer of file vm */
+/* prj 3 Swap In/Out - yeopto */
 void
 vm_file_init (void) {
+	lock_init(&file_lock);
 }
 
 /* Initialize the file backed page */
@@ -78,15 +83,45 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 }
 
 /* Swap in the page by read contents from the file. */
+/* prj 3 Swap In/Out - yeopto */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *swap_src = &page->file;
+	struct file *file = swap_src->m_file;
+	off_t ofs = swap_src->ofs;
+	uint32_t read_bytes = swap_src->read_bytes;
+	uint32_t zero_bytes = swap_src->zero_bytes;
+
+	lock_acquire(&file_lock);
+	file_read_at(file, kva, read_bytes, ofs);
+	lock_release(&file_lock);
+
+	memset(kva + read_bytes, 0, zero_bytes);
+
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
+/* prj 3 Swap In/Out - yeopto */
 static bool
 file_backed_swap_out (struct page *page) {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *swap_src = &page->file;
+	struct file *file = swap_src->m_file;
+	off_t ofs = swap_src->ofs;
+	uint32_t read_bytes = swap_src->read_bytes;
+	void *kva = page->frame->kva;
+
+	if (pml4_is_dirty(page->pml4, page->va)) {
+		lock_acquire(&file_lock);
+		file_write_at(file, kva, read_bytes, ofs);
+		lock_release(&file_lock);
+		
+		pml4_set_dirty(page->pml4, page, 0);
+		return true;
+	} else {
+		pml4_set_dirty(page->pml4, page, 0);
+		return false;
+	} 
 }
 
 /* Jack */
@@ -96,7 +131,6 @@ file_backed_destroy (struct page *page) {
 	ASSERT(page != NULL);
 
 	struct file_page *file_page = &page->file;
-
 	struct file *file = file_page->m_file;
 	off_t ofs = file_page->ofs;
 	uint32_t write_bytes = file_page->read_bytes;
@@ -107,7 +141,10 @@ file_backed_destroy (struct page *page) {
 		if (pml4_is_dirty(page->pml4, page->va))
 		{
 			void *kva = page->frame->kva;
+			/* prj 3 Swap In/Out - yeopto */
+			lock_acquire(&file_lock);
 			file_write_at(file, kva, write_bytes, ofs);
+			lock_release(&file_lock);
 			// ASSERT(file_write_at(file, kva, write_bytes, ofs) == (int) write_bytes); // debug
 			pml4_set_dirty(page->pml4, page->va, false);
 		}
@@ -116,8 +153,12 @@ file_backed_destroy (struct page *page) {
 	}
 
 	if ((--(*(file_page->open_count))) == 0) // debugging sanori - 한줄로 넣느라 연산자 남발해서 제대로 안되면 확인 필요함
-	{
+	{	
+		/* prj 3 Swap In/Out - yeopto */
+		lock_acquire(&file_lock);
 		file_close(file_page->m_file);
+		lock_release(&file_lock);
+
 		free(file_page->open_count);
 	}
 }
