@@ -7,6 +7,7 @@
 #include "threads/malloc.h"
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
+#include "vm/swapdisk.h"
 
 enum vm_type {
 	/* page not initialized */

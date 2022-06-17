@@ -331,10 +331,25 @@ bool
 copy_page (struct page *page, void *aux)
 {
 	struct page *parent_page = aux;
-	void *parent_kva = parent_page->frame->kva;
-	void *child_kva = page->frame->kva;
 	
-	return memcpy(child_kva, parent_kva, PGSIZE)!=NULL? true: false; // debugging sanori - kva로 접근해야할까 uva로 접근해야할까?
+	if (parent_page->frame != NULL)
+	{
+		void *parent_kva = parent_page->frame->kva;
+		void *child_kva = page->frame->kva;
+		return memcpy(child_kva, parent_kva, PGSIZE)!=NULL? true: false;
+	} else {
+		switch (page_get_type(parent_page))
+		{
+		case VM_ANON:
+			swapdisk_swap_in(parent_page->anon.swap_slot, page->frame->kva, true);
+			break;
+		case VM_FILE:
+			swap_in (page, page->frame->kva);
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 /* Copy supplemental page table from src to dst */
