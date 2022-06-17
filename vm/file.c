@@ -105,23 +105,24 @@ file_backed_swap_in (struct page *page, void *kva) {
 /* prj 3 Swap In/Out - yeopto */
 static bool
 file_backed_swap_out (struct page *page) {
+	
+	if (page == NULL) return false;
+	ASSERT (page->operations->type == VM_FILE);
+	
 	struct file_page *swap_src = &page->file;
 	struct file *file = swap_src->m_file;
 	off_t ofs = swap_src->ofs;
-	uint32_t read_bytes = swap_src->read_bytes;
+	uint32_t write_bytes = swap_src->read_bytes;
 	void *kva = page->frame->kva;
 
 	if (pml4_is_dirty(page->pml4, page->va)) {
 		lock_acquire(&file_lock);
-		file_write_at(file, kva, read_bytes, ofs);
+		file_write_at(file, kva, write_bytes, ofs);
 		lock_release(&file_lock);
-		
-		pml4_set_dirty(page->pml4, page, 0);
-		return true;
-	} else {
-		pml4_set_dirty(page->pml4, page, 0);
-		return false;
-	} 
+	}
+	
+	pml4_set_dirty(page->pml4, page, 0);
+	return true;
 }
 
 /* Jack */
