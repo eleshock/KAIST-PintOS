@@ -228,7 +228,7 @@ vm_get_frame (void) {
 		frame = vm_evict_frame();
 		ASSERT (frame != NULL);
 		ASSERT (frame->page == NULL);
-		return frame;
+		goto ret;
 	}
 	
 	frame = malloc(sizeof(struct frame));
@@ -242,6 +242,7 @@ vm_get_frame (void) {
 	/* eleshock */
 	ft_insert(frame);
 
+ret:
 	return frame;
 }
 
