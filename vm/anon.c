@@ -41,6 +41,7 @@ anon_initializer (struct page *page, enum vm_type type, void *kva) {
 	return true;
 }
 
+/* Jack */
 /* Swap in the page by read contents from the swap disk. */
 static bool
 anon_swap_in (struct page *page, void *kva) {
@@ -51,11 +52,12 @@ anon_swap_in (struct page *page, void *kva) {
 	return ret;
 }
 
+/* Jack */
 /* Swap out the page by writing contents to the swap disk. */
 static bool
 anon_swap_out (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
-	if (anon_page->swap_slot = swapdisk_swap_out(page->frame->kva) == -1)
+	if ((anon_page->swap_slot = swapdisk_swap_out(page->frame->kva)) == -1)
 		return false;
 	return true;
 }
