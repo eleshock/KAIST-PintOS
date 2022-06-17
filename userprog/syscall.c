@@ -171,6 +171,20 @@ check_address(void *vaddr)
         exit(-1);
 }
 
+// debugging
+void
+check_buffer(void *buffer, unsigned size)
+{
+    // buffer가 read only 인 경우에는 종료시키도록 확인 - Jack Debug
+    int page_count = size / PGSIZE + pg_ofs(size) != 0 ? 1 : 0;
+    for (int i = 0; i < page_count; i++)
+    {
+        struct page *p = spt_find_page(&thread_current()->spt, buffer + i * PGSIZE);
+        if (p != NULL && !p->writable)
+            exit(-1);
+    }
+}
+
 /*** Jack ***/
 bool create (const char *file, unsigned initial_size)
 {
@@ -266,9 +280,7 @@ int read (int fd, void *buffer, unsigned size)
     check_address(buffer);
 
     // buffer가 read only 인 경우에는 종료시키도록 확인 - Jack Debug
-    struct page *p = spt_find_page(&thread_current()->spt, buffer);
-    if (p != NULL && !p->writable)
-        exit(-1);
+    check_buffer(buffer, size);
 
     uint64_t read_len = 0;              // 읽어낸 길이
 

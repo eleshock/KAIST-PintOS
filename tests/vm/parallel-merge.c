@@ -40,7 +40,6 @@ sort_chunks (const char *subprocess, int exit_status)
 {
   pid_t children[CHUNK_CNT];
   size_t i;
-
   for (i = 0; i < CHUNK_CNT; i++)
     {
       char fn[128];
@@ -71,7 +70,6 @@ sort_chunks (const char *subprocess, int exit_status)
       int handle;
 
       CHECK (wait (children[i]) == exit_status, "wait for child %zu", i);
-
       /* Read chunk back from file. */
       quiet = true;
       snprintf (fn, sizeof fn, "buf%zu", i);
