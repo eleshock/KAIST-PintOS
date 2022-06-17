@@ -4,7 +4,7 @@
 #include "threads/synch.h"
 #include "lib/debug.h"
 
-typedef uint32_t swap_slot_t;
+typedef int swap_slot_t;
 
 #define SECTOR_PER_SLOT 8
 #define SECTOR(slot) (disk_sector_t)(slot * SECTOR_PER_SLOT)
