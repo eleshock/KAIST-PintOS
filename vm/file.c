@@ -86,6 +86,11 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 /* prj 3 Swap In/Out - yeopto */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
+	
+	if (page == NULL || kva == NULL) return false;
+	
+	ASSERT(page->operations->type == VM_FILE);
+	
 	struct file_page *swap_src = &page->file;
 	struct file *file = swap_src->m_file;
 	off_t ofs = swap_src->ofs;
