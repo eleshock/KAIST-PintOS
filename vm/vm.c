@@ -149,7 +149,23 @@ static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
 	 /* TODO: The policy for eviction is up to you. */
-
+	struct list *f_list = &ft.table;
+	struct list_elem *curr_f_elem;
+	lock_acquire(&ft.lock);
+	for (curr_f_elem = list_begin(f_list); ; curr_f_elem = list_next(curr_f_elem) == list_tail(f_list)? list_begin(f_list): list_next(curr_f_elem))
+	{
+		struct frame *curr_frame = list_entry(curr_f_elem, struct frame, f_elem);
+		if (pml4_is_accessed(curr_frame->page->pml4, curr_frame->page->va))
+		{
+			pml4_set_accessed(curr_frame->page->pml4, curr_frame->page->va, false);
+		}
+		else
+		{
+			victim = curr_frame;
+			break;
+		}
+	}
+	lock_release(&ft.lock);
 	return victim;
 }
 
@@ -157,9 +173,15 @@ vm_get_victim (void) {
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
-	struct frame *victim UNUSED = vm_get_victim ();
+	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
-
+	if (swap_out(victim->page))
+	{	
+		pml4_clear_page(victim->page->pml4,victim->page->va);
+		victim->page->frame = NULL;
+		victim->page = NULL;
+		return victim;
+	}
 	return NULL;
 }
 
@@ -202,8 +224,13 @@ vm_get_frame (void) {
 
 	/* eleshock */
 	void *pp = palloc_get_page(PAL_USER);
-	if (pp == NULL)
-		PANIC("todo");
+	if (pp == NULL) {
+		frame = vm_evict_frame();
+		ASSERT (frame != NULL);
+		ASSERT (frame->page == NULL);
+		goto ret;
+	}
+	
 	frame = malloc(sizeof(struct frame));
 	frame->kva = pp;
 	frame->page = NULL;
@@ -215,6 +242,7 @@ vm_get_frame (void) {
 	/* eleshock */
 	ft_insert(frame);
 
+ret:
 	return frame;
 }
 
@@ -331,10 +359,25 @@ bool
 copy_page (struct page *page, void *aux)
 {
 	struct page *parent_page = aux;
-	void *parent_kva = parent_page->frame->kva;
-	void *child_kva = page->frame->kva;
 	
-	return memcpy(child_kva, parent_kva, PGSIZE)!=NULL? true: false; // debugging sanori - kva로 접근해야할까 uva로 접근해야할까?
+	if (parent_page->frame != NULL)
+	{
+		void *parent_kva = parent_page->frame->kva;
+		void *child_kva = page->frame->kva;
+		return memcpy(child_kva, parent_kva, PGSIZE)!=NULL? true: false;
+	} else {
+		switch (page_get_type(parent_page))
+		{
+		case VM_ANON:
+			swapdisk_swap_in(parent_page->anon.swap_slot, page->frame->kva, true);
+			break;
+		case VM_FILE:
+			swap_in (page, page->frame->kva);
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 /* Copy supplemental page table from src to dst */
