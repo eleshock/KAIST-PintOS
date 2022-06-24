@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "filesys/fat.h"
 
 /* A directory. */
 struct dir {
@@ -17,6 +18,11 @@ struct dir_entry {
 	disk_sector_t inode_sector;         /* Sector number of header. */
 	char name[NAME_MAX + 1];            /* Null terminated file name. */
 	bool in_use;                        /* In use or free? */
+#ifdef EFILESYS
+	// Jack
+	// 32byte로 align 해서 섹터 안에 16개가 꽉차도록 -> 여러 섹터로 된 디렉토리 고려
+	uint8_t unused[12];					/* not used */
+#endif
 };
 
 /* Creates a directory with space for ENTRY_CNT entries in the
@@ -46,7 +52,11 @@ dir_open (struct inode *inode) {
  * Return true if successful, false on failure. */
 struct dir *
 dir_open_root (void) {
+#ifdef EFILESYS
+	return dir_open (inode_open (cluster_to_sector(ROOT_DIR_CLUSTER))); // Jack
+#else
 	return dir_open (inode_open (ROOT_DIR_SECTOR));
+#endif
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
