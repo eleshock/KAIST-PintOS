@@ -216,13 +216,3 @@ disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
 }
-
-
-/* Covert a sector # to a cluster number. */
-cluster_t
-sector_to_cluster (disk_sector_t sector) {
-	/* eleshock */
-	cluster_t clst = fat_fs->data_start - sector;
-
-	return clst;
-}
