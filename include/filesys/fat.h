@@ -27,6 +27,10 @@ void fat_close (void);
 cluster_t fat_create_chain (
     cluster_t clst /* Cluster # to stretch, 0: Create a new chain */
 );
+bool fat_create_multi_chain (
+    cluster_t clst, cluster_t size, cluster_t *clstp
+);
+
 void fat_remove_chain (
     cluster_t clst, /* Cluster # to be removed */
     cluster_t pclst /* Previous cluster of clst, 0: clst is the start of chain */
@@ -34,5 +38,6 @@ void fat_remove_chain (
 cluster_t fat_get (cluster_t clst);
 void fat_put (cluster_t clst, cluster_t val);
 disk_sector_t cluster_to_sector (cluster_t clst);
+cluster_t sector_to_cluster (disk_sector_t sector);
 
 #endif /* filesys/fat.h */

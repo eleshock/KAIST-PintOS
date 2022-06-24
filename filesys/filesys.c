@@ -8,6 +8,9 @@
 #include "filesys/directory.h"
 #include "devices/disk.h"
 
+/* eleshock */
+#include "filesys/fat.h"
+
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
 
@@ -59,14 +62,26 @@ filesys_done (void) {
  * or if internal memory allocation fails. */
 bool
 filesys_create (const char *name, off_t initial_size) {
-	disk_sector_t inode_sector = 0;
 	struct dir *dir = dir_open_root ();
+
+/* eleshock */
+#ifdef EFILESYS
+	cluster_t clst = fat_create_chain (0);
+	bool success = (dir != NULL
+			&& clst
+			&& inode_create (cluster_to_sector(clst), initial_size)
+			&& dir_add (dir, name, cluster_to_sector(clst)));
+	if (!success && inode_sector != 0)
+		fat_remove_chain (clst, 0);
+#else
+	disk_sector_t inode_sector = 0;
 	bool success = (dir != NULL
 			&& free_map_allocate (1, &inode_sector)
 			&& inode_create (inode_sector, initial_size)
 			&& dir_add (dir, name, inode_sector));
 	if (!success && inode_sector != 0)
 		free_map_release (inode_sector, 1);
+#endif
 	dir_close (dir);
 
 	return success;

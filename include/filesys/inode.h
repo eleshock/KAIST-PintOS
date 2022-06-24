@@ -21,8 +21,8 @@ void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
-/*** Jack ***/
-void inode_acquire(struct inode *i);
-void inode_release(struct inode *i);
+// /*** Jack ***/
+// void inode_acquire(struct inode *i);
+// void inode_release(struct inode *i);
 
 #endif /* filesys/inode.h */
