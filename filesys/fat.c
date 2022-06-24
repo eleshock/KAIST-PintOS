@@ -125,7 +125,10 @@ fat_create (void) {
 		PANIC ("FAT creation failed");
 
 	// Set up ROOT_DIR_CLST
+	/* prj4 filesys - yeopto */
+	lock_acquire(&fat_fs->write_lock);
 	fat_put (ROOT_DIR_CLUSTER, EOChain);
+	lock_release(&fat_fs->write_lock);
 
 	// Fill up ROOT_DIR_CLUSTER region with 0
 	uint8_t *buf = calloc (1, DISK_SECTOR_SIZE);
@@ -150,9 +153,15 @@ fat_boot_create (void) {
 	};
 }
 
+/* prj4 filesys - yeopto */
 void
 fat_fs_init (void) {
 	/* TODO: Your code goes here. */
+	fat_fs->fat_length = fat_fs->bs.total_sectors - fat_fs->bs.fat_sectors - 1;
+	fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
+	fat_fs->read_count = 0;
+	lock_init(&fat_fs->write_lock);
+	lock_init(&fat_fs->read_lock);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -172,12 +181,37 @@ fat_create_chain (cluster_t clst) {
 void
 fat_remove_chain (cluster_t clst, cluster_t pclst) {
 	/* TODO: Your code goes here. */
+	/* prj4 filesys - yeopto */
+	cluster_t tmp_clst = clst;
+	cluster_t tmp_pclst = pclst;
+	
+	while (fat_fs->fat[tmp_clst] != EOChain) {
+		cluster_t temp = fat_fs->fat[tmp_clst];
+		lock_acquire(&fat_fs->write_lock);
+		fat_put(tmp_clst, 0);
+		lock_release(&fat_fs->write_lock);
+		tmp_clst = temp;
+	}
+	
+	if (fat_fs->fat[tmp_clst] == EOChain) {
+		lock_acquire(&fat_fs->write_lock);
+		fat_fs->fat[tmp_clst] = 0;
+		lock_release(&fat_fs->write_lock);
+	}
+
+	if (fat_fs->fat[pclst] != 0) {
+		lock_acquire(&fat_fs->write_lock);
+		fat_fs->fat[pclst] = EOChain;
+		lock_release(&fat_fs->write_lock);
+	}
 }
 
 /* Update a value in the FAT table. */
 void
 fat_put (cluster_t clst, cluster_t val) {
 	/* TODO: Your code goes here. */
+	/* prj4 filesys - yeopto */
+	fat_fs->fat[clst] = val;
 }
 
 /* Fetch a value in the FAT table. */
@@ -190,4 +224,8 @@ fat_get (cluster_t clst) {
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
+	/* prj4 filesys - yeopto */
+	disk_sector_t sector_num = fat_fs->data_start + clst;
+
+	return sector_num;
 }
