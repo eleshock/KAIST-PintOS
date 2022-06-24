@@ -160,15 +160,15 @@ file_tell (struct file *file) {
 	return file->pos;
 }
 
-/*** Jack ***/
-/* Lock acquire for file */
-void file_lock_acquire (struct file *f)
-{
-	inode_acquire(&f->inode);
-}
+// /*** Jack ***/
+// /* Lock acquire for file */
+// void file_lock_acquire (struct file *f)
+// {
+// 	inode_acquire(&f->inode);
+// }
 
-/* Lock release for file */
-void file_lock_release (struct file *f)
-{
-	inode_release(&f->inode);
-}
+// /* Lock release for file */
+// void file_lock_release (struct file *f)
+// {
+// 	inode_release(&f->inode);
+// }

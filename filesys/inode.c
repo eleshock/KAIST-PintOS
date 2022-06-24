@@ -6,6 +6,7 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "filesys/fat.h"
 
 
 /* Identifies an inode. */
@@ -35,7 +36,7 @@ struct inode {
 	bool removed;                       /* True if deleted, false otherwise. */
 	int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
 	struct inode_disk data;             /* Inode content. */
-	struct lock inode_lock;				/* Lock for modifying deny_write_cnt */ // Jack
+	// struct lock inode_lock;				/* Lock for modifying deny_write_cnt */ // Jack
 };
 
 /* Returns the disk sector that contains byte offset POS within
@@ -49,6 +50,55 @@ byte_to_sector (const struct inode *inode, off_t pos) {
 		return inode->data.start + pos / DISK_SECTOR_SIZE;
 	else
 		return -1;
+}
+
+/* Jack */
+/* Extend file */
+static bool
+check_and_extend_file (struct inode *inode, off_t pos, off_t size) {
+	ASSERT (inode != NULL);
+
+	if (pos + size <= inode->data.length)
+		return true;
+	
+	cluster_t need, last, curr;
+	for (curr = inode->data.start; curr != EOChain; curr = fat_get(curr))
+		last = curr;
+
+	if ((need = bytes_to_sectors(pos + size) - \
+		 bytes_to_sectors(inode->data.length > 0? inode->data.length: 1)) > 0) {
+		cluster_t new;
+
+		if (fat_create_multi_chain(last, need, &new)) {
+			size_t i;
+			cluster_t curr_cluster = new;
+			
+			static char zeros_extend[DISK_SECTOR_SIZE];
+			for (i = 0; i < need; i++)
+			{
+				ASSERT (curr_cluster != EOChain);
+				disk_write (filesys_disk, cluster_to_sector(curr_cluster), zeros_extend); 
+				curr_cluster = fat_get(curr_cluster);
+			}
+		} else {
+			return false;
+		}
+	}
+
+	uint8_t *bounce = calloc (1, DISK_SECTOR_SIZE);
+	if (bounce == NULL)
+		return false;
+	uint32_t eof_ofs = inode->data.length % DISK_SECTOR_SIZE;
+	uint32_t eof_left = DISK_SECTOR_SIZE - eof_ofs;
+	disk_read (filesys_disk, cluster_to_sector(last), bounce);
+	memset (bounce + eof_ofs, 0, eof_left);
+	disk_write (filesys_disk, cluster_to_sector(last), bounce); 
+	free(bounce);	
+
+	inode->data.length = pos + size;
+	disk_write (filesys_disk, cluster_to_sector(inode->cluster), &inode->data);
+
+	return true;
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -79,6 +129,8 @@ inode_create (disk_sector_t sector, off_t length) {
 
 	disk_inode = calloc (1, sizeof *disk_inode);
 	if (disk_inode != NULL) {
+		/* Jack */
+#ifndef EFILESYS
 		size_t sectors = bytes_to_sectors (length);
 		disk_inode->length = length;
 		disk_inode->magic = INODE_MAGIC;
@@ -92,8 +144,30 @@ inode_create (disk_sector_t sector, off_t length) {
 					disk_write (filesys_disk, disk_inode->start + i, zeros); 
 			}
 			success = true; 
-		} 
+		}
 		free (disk_inode);
+#else
+		cluster_t clusters = length > 0? bytes_to_sectors (length): 1;
+		disk_inode->length = length;
+		disk_inode->magic = INODE_MAGIC;
+		if (fat_create_multi_chain(0, clusters, &disk_inode->start)) {
+			disk_write (filesys_disk, sector, disk_inode);
+			
+			static char zeros[DISK_SECTOR_SIZE];
+			size_t i;
+			cluster_t curr_cluster = disk_inode->start;
+			
+			for (i = 0; i < clusters; i++)
+			{
+				ASSERT (curr_cluster != EOChain);
+				disk_write (filesys_disk, cluster_to_sector(curr_cluster), zeros); 
+				curr_cluster = fat_get(curr_cluster);
+			}
+			success = true; 
+		}
+		free (disk_inode);
+#endif 
+		
 	}
 	return success;
 }
@@ -123,12 +197,22 @@ inode_open (disk_sector_t sector) {
 
 	/* Initialize. */
 	list_push_front (&open_inodes, &inode->elem);
+
+	/* Jack */
+#ifndef EFILESYS	
 	inode->sector = sector;
+#else
+	inode->cluster = sector_to_cluster(sector);
+#endif
 	inode->open_cnt = 1;
 	inode->deny_write_cnt = 0;
 	inode->removed = false;
-	lock_init(&inode->inode_lock);
+	// lock_init(&inode->inode_lock);
+#ifndef EFILESYS
 	disk_read (filesys_disk, inode->sector, &inode->data);
+#else
+	disk_read (filesys_disk, cluster_to_sector(inode->cluster), &inode->data);
+#endif
 	return inode;
 }
 
@@ -143,7 +227,12 @@ inode_reopen (struct inode *inode) {
 /* Returns INODE's inode number. */
 disk_sector_t
 inode_get_inumber (const struct inode *inode) {
+	/* Jack */
+#ifndef EFILESYS
 	return inode->sector;
+#else
+	return inode->cluster;
+#endif
 }
 
 /* Closes INODE and writes it to disk.
@@ -239,7 +328,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 	off_t bytes_written = 0;
 	uint8_t *bounce = NULL;
 
-	if (inode->deny_write_cnt)
+	if (inode->deny_write_cnt || !check_and_extend_file(inode, offset, size)) // Jack
 		return 0;
 
 	while (size > 0) {
@@ -314,15 +403,15 @@ inode_length (const struct inode *inode) {
 	return inode->data.length;
 }
 
-/*** Jack ***/
-/* Lock acquire for inode */
-void inode_acquire(struct inode *i)
-{
-	lock_acquire(&i->inode_lock);
-}
+// /*** Jack ***/
+// /* Lock acquire for inode */
+// void inode_acquire(struct inode *i)
+// {
+// 	lock_acquire(&i->inode_lock);
+// }
 
-/* Lock release for inode */
-void inode_release(struct inode *i)
-{
-	lock_release(&i->inode_lock);
-}
+// /* Lock release for inode */
+// void inode_release(struct inode *i)
+// {
+// 	lock_release(&i->inode_lock);
+// }

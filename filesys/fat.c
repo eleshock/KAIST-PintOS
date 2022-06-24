@@ -24,6 +24,8 @@ struct fat_fs {
 	disk_sector_t data_start;
 	cluster_t last_clst;
 	struct lock write_lock;
+	struct lock read_lock; // Jack
+	unsigned int read_count; // Jack
 };
 
 static struct fat_fs *fat_fs;
@@ -127,12 +129,16 @@ fat_create (void) {
 	// Set up ROOT_DIR_CLST
 	fat_put (ROOT_DIR_CLUSTER, EOChain);
 
+	// Jack
+	// root dir 위치에 inode 없이 directory로 쓴다? 어쩌자는거지? 그냥 inode만드는 방식으로 바꿀래...
+	if (!dir_create (cluster_to_sector (ROOT_DIR_CLUSTER), 16))
+		PANIC ("root directory creation failed");
 	// Fill up ROOT_DIR_CLUSTER region with 0
-	uint8_t *buf = calloc (1, DISK_SECTOR_SIZE);
-	if (buf == NULL)
-		PANIC ("FAT create failed due to OOM");
-	disk_write (filesys_disk, cluster_to_sector (ROOT_DIR_CLUSTER), buf);
-	free (buf);
+	// uint8_t *buf = calloc (1, DISK_SECTOR_SIZE);
+	// if (buf == NULL)
+	// 	PANIC ("FAT create failed due to OOM");
+	// disk_write (filesys_disk, cluster_to_sector (ROOT_DIR_CLUSTER), buf);
+	// free (buf);
 }
 
 void
@@ -167,6 +173,33 @@ fat_create_chain (cluster_t clst) {
 	/* TODO: Your code goes here. */
 }
 
+/* Jack */
+/* Add clusters to the chain.
+ * If CLST is 0, start a new chain.
+ * If CLSTP is not NULL, save first cluster number to it
+ * Returns false if fails to allocate a new cluster */
+bool
+fat_create_multi_chain (cluster_t clst, cluster_t size, cluster_t *clstp) {
+	cluster_t first_clst = clst == 0? fat_create_chain(0) : fat_create_chain(clst);
+	if (first_clst == 0) return false;
+
+	cluster_t next_clst = first_clst;
+	for (int i = 0; i < size - 1; i++)
+	{
+		next_clst = fat_create_chain(next_clst);
+		if (next_clst == 0)
+		{
+			fat_remove_chain(first_clst, clst);
+			return false;
+		}
+	}
+	if (clstp != NULL)
+		*clstp = first_clst;
+
+	return true;
+}
+
+
 /* Remove the chain of clusters starting from CLST.
  * If PCLST is 0, assume CLST as the start of the chain. */
 void
@@ -180,14 +213,39 @@ fat_put (cluster_t clst, cluster_t val) {
 	/* TODO: Your code goes here. */
 }
 
+/* Jack */
 /* Fetch a value in the FAT table. */
 cluster_t
 fat_get (cluster_t clst) {
 	/* TODO: Your code goes here. */
+	cluster_t ret;
+
+	lock_acquire(&fat_fs->read_lock);
+	fat_fs->read_count++;
+	if (fat_fs->read_count == 1)
+		lock_acquire(&fat_fs->write_lock);
+	lock_release(&fat_fs->read_lock);
+
+	ret = fat_fs->fat[clst];
+
+	lock_acquire(&fat_fs->read_lock);
+	fat_fs->read_count--;
+	if (fat_fs->read_count == 0)
+		lock_release(&fat_fs->write_lock);
+	lock_release(&fat_fs->read_lock);
+
+	return ret;
 }
 
 /* Covert a cluster # to a sector number. */
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
+}
+
+/* Jack */
+/* Convert a sector # to a cluster number */
+cluster_t
+sector_to_cluster (disk_sector_t sector) {
+	return sector - fat_fs->data_start;
 }

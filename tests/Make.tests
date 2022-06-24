@@ -35,6 +35,10 @@ check:: results
 		exit 1;							  \
 	fi
 
+single/%:
+	rm -f $(addsuffix .result,$(addprefix tests/,$*)) $(addsuffix .errors,$(addprefix tests/,$*)) $(addsuffix .output,$(addprefix tests/,$*))
+	make $(addsuffix .result,$(addprefix tests/,$*))
+
 results: $(RESULTS)
 	@for d in $(TESTS) $(EXTRA_GRADES); do			\
 		if echo PASS | cmp -s $$d.result -; then	\

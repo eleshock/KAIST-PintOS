@@ -20,4 +20,7 @@ clean:
 	rm -rf build
 
 test/%:
-	cd build && make $* && cd ..
+	cd build && make $*
+
+single/%: $(DIRS) build/Makefile
+	cd build && $(MAKE) single/$*
