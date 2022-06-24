@@ -17,7 +17,7 @@ tid_t page_cache_workerd;
 
 /* The initializer of file vm */
 void
-page_cache_init (void) {
+pagecache_init (void) {
 	/* TODO: Create a worker daemon for page cache with page_cache_kworkerd */
 }
 

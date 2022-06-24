@@ -68,10 +68,9 @@ filesys_create (const char *name, off_t initial_size) {
 #ifdef EFILESYS
 	cluster_t clst = fat_create_chain (0);
 	bool success = (dir != NULL
-			&& clst
 			&& inode_create (cluster_to_sector(clst), initial_size)
 			&& dir_add (dir, name, cluster_to_sector(clst)));
-	if (!success && inode_sector != 0)
+	if (!success && clst != 0)
 		fat_remove_chain (clst, 0);
 #else
 	disk_sector_t inode_sector = 0;

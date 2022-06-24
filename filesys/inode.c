@@ -206,10 +206,17 @@ inode_open (disk_sector_t sector) {
 	for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
 			e = list_next (e)) {
 		inode = list_entry (e, struct inode, elem);
+#ifndef EFILESYS
 		if (inode->sector == sector) {
 			inode_reopen (inode);
 			return inode; 
 		}
+#else
+		if (inode->cluster == sector_to_cluster(sector)) {
+			inode_reopen (inode);
+			return inode; 
+		}
+#endif
 	}
 
 	/* Allocate memory. */
