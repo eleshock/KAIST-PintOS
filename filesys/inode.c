@@ -6,7 +6,7 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
-
+#include "filesys/fat.h" /* eleshock */
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -14,7 +14,13 @@
 /* On-disk inode.
  * Must be exactly DISK_SECTOR_SIZE bytes long. */
 struct inode_disk {
+
+/* eleshock */
+#ifdef EFILESYS
+	cluster_t start; // for project4
+#else
 	disk_sector_t start;                /* First data sector. */
+#endif
 	off_t length;                       /* File size in bytes. */
 	unsigned magic;                     /* Magic number. */
 	uint32_t unused[125];               /* Not used. */
@@ -45,8 +51,17 @@ struct inode {
 static disk_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) {
 	ASSERT (inode != NULL);
+#ifdef EFILESYS
+	cluster_t clst = inode->data.start; // first cluster idx
+	int count = pos / DISK_SECTOR_SIZE;
+	for (int i = 0; i < count; i++) {
+		clst = fat_get(clst);
+	}
+	return cluster_to_sector(clst);
+#else
 	if (pos < inode->data.length)
 		return inode->data.start + pos / DISK_SECTOR_SIZE;
+#endif
 	else
 		return -1;
 }
@@ -160,13 +175,19 @@ inode_close (struct inode *inode) {
 		/* Remove from inode list and release lock. */
 		list_remove (&inode->elem);
 
+#ifdef EFILESYS
+		if (inode->removed) {
+			fat_remove_chain (inode->cluster, 0);
+			fat_remove_chain (inode->data.start, 0);
+		}
+#else
 		/* Deallocate blocks if removed. */
 		if (inode->removed) {
 			free_map_release (inode->sector, 1);
 			free_map_release (inode->data.start,
 					bytes_to_sectors (inode->data.length)); 
 		}
-
+#endif
 		free (inode); 
 	}
 }

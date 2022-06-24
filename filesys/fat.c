@@ -165,6 +165,31 @@ fat_fs_init (void) {
 cluster_t
 fat_create_chain (cluster_t clst) {
 	/* TODO: Your code goes here. */
+
+	/* eleshock */
+	lock_acquire(&fat_fs->write_lock);
+	cluster_t i = 2;
+	while (fat_fs->fat[i] != 0 && i < fat_fs->fat_length) {
+		++i;
+	}
+	
+	if (i == fat_fs->fat_length) {
+		i = 0;
+		goto done;
+	}
+	
+	fat_put(i, EOChain);
+	
+	if (clst == 0) {
+		goto done;
+	}
+
+	ASSERT(fat_fs->fat[clst] == EOChain);
+	
+	fat_put(clst, i);
+done:
+	lock_release(&fat_fs->write_lock);
+	return i;
 }
 
 /* Remove the chain of clusters starting from CLST.
@@ -190,4 +215,14 @@ fat_get (cluster_t clst) {
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
+}
+
+
+/* Covert a sector # to a cluster number. */
+cluster_t
+sector_to_cluster (disk_sector_t sector) {
+	/* eleshock */
+	cluster_t clst = fat_fs->data_start - sector;
+
+	return clst;
 }
