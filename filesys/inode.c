@@ -52,12 +52,16 @@ static disk_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) {
 	ASSERT (inode != NULL);
 #ifdef EFILESYS
-	cluster_t clst = inode->data.start; // first cluster idx
-	int count = pos / DISK_SECTOR_SIZE;
-	for (int i = 0; i < count; i++) {
-		clst = fat_get(clst);
+	/* eleshock */
+	if (pos < inode->data.length)
+	{
+		cluster_t clst = inode->data.start; // first cluster idx
+		int count = pos / DISK_SECTOR_SIZE;
+		for (int i = 0; i < count; i++) {
+			clst = fat_get(clst);
+		}
+		return cluster_to_sector(clst);
 	}
-	return cluster_to_sector(clst);
 #else
 	if (pos < inode->data.length)
 		return inode->data.start + pos / DISK_SECTOR_SIZE;
