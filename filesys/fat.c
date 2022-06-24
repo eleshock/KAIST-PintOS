@@ -127,7 +127,10 @@ fat_create (void) {
 		PANIC ("FAT creation failed");
 
 	// Set up ROOT_DIR_CLST
+	/* prj4 filesys - yeopto */
+	lock_acquire(&fat_fs->write_lock);
 	fat_put (ROOT_DIR_CLUSTER, EOChain);
+	lock_release(&fat_fs->write_lock);
 
 	// Jack
 	// root dir 위치에 inode 없이 directory로 쓴다? 어쩌자는거지? 그냥 inode만드는 방식으로 바꿀래...
@@ -156,9 +159,15 @@ fat_boot_create (void) {
 	};
 }
 
+/* prj4 filesys - yeopto */
 void
 fat_fs_init (void) {
 	/* TODO: Your code goes here. */
+	fat_fs->fat_length = fat_fs->bs.total_sectors - fat_fs->bs.fat_sectors - 1;
+	fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
+	fat_fs->read_count = 0;
+	lock_init(&fat_fs->write_lock);
+	lock_init(&fat_fs->read_lock);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -230,12 +239,32 @@ fat_create_multi_chain (cluster_t clst, cluster_t size, cluster_t *clstp) {
 void
 fat_remove_chain (cluster_t clst, cluster_t pclst) {
 	/* TODO: Your code goes here. */
+	/* prj4 filesys - yeopto */
+	cluster_t tmp_clst = clst;
+	
+	lock_acquire(&fat_fs->write_lock);
+	
+	while (fat_fs->fat[tmp_clst] != EOChain) {
+		cluster_t temp = fat_fs->fat[tmp_clst];
+		fat_put(tmp_clst, 0);
+		tmp_clst = temp;
+	}
+	if (fat_fs->fat[tmp_clst] == EOChain)
+		fat_put(tmp_clst, 0);
+
+	if (pclst != 0)
+		fat_put(pclst, EOChain);
+
+	lock_release(&fat_fs->write_lock);
+	fat_close();
 }
 
 /* Update a value in the FAT table. */
 void
 fat_put (cluster_t clst, cluster_t val) {
 	/* TODO: Your code goes here. */
+	/* prj4 filesys - yeopto */
+	fat_fs->fat[clst] = val;
 }
 
 /* Jack */
@@ -266,6 +295,10 @@ fat_get (cluster_t clst) {
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
+	/* prj4 filesys - yeopto */
+	disk_sector_t sector_num = fat_fs->data_start + clst;
+
+	return sector_num;
 }
 
 /* Jack */
