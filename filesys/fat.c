@@ -241,27 +241,22 @@ fat_remove_chain (cluster_t clst, cluster_t pclst) {
 	/* TODO: Your code goes here. */
 	/* prj4 filesys - yeopto */
 	cluster_t tmp_clst = clst;
-	cluster_t tmp_pclst = pclst;
+	
+	lock_acquire(&fat_fs->write_lock);
 	
 	while (fat_fs->fat[tmp_clst] != EOChain) {
 		cluster_t temp = fat_fs->fat[tmp_clst];
-		lock_acquire(&fat_fs->write_lock);
 		fat_put(tmp_clst, 0);
-		lock_release(&fat_fs->write_lock);
 		tmp_clst = temp;
 	}
-	
-	if (fat_fs->fat[tmp_clst] == EOChain) {
-		lock_acquire(&fat_fs->write_lock);
-		fat_fs->fat[tmp_clst] = 0;
-		lock_release(&fat_fs->write_lock);
-	}
+	if (fat_fs->fat[tmp_clst] == EOChain)
+		fat_put(tmp_clst, 0);
 
-	if (fat_fs->fat[pclst] != 0) {
-		lock_acquire(&fat_fs->write_lock);
-		fat_fs->fat[pclst] = EOChain;
-		lock_release(&fat_fs->write_lock);
-	}
+	if (pclst != 0)
+		fat_put(pclst, EOChain);
+
+	lock_release(&fat_fs->write_lock);
+	fat_close();
 }
 
 /* Update a value in the FAT table. */
