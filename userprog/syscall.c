@@ -13,6 +13,8 @@
 #include "filesys/file.h"
 #include "threads/palloc.h"
 #include "lib/string.h"
+#include "filesys/directory.h"
+#include "filesys/fat.h"
 
 /*** GrilledSalmon ***/
 #include "threads/init.h"	
@@ -23,7 +25,6 @@
 /* eleshock */
 #include "vm/file.h"
 #include "vm/vm.h"
-
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -54,6 +55,8 @@ static struct lock filesys_lock;                    /*** GrilledSalmon ***/
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap (void *addr);
 
+/* Jack */
+bool mkdir (const char *dir);
 
 /* System call.
  *
@@ -160,6 +163,9 @@ syscall_handler (struct intr_frame *f UNUSED)
         case SYS_MUNMAP : // eleshock
             munmap(f->R.rdi);
             break;
+
+        case SYS_MKDIR : // Jack
+            f->R.rax = mkdir(f->R.rdi);
     }
 }
 
@@ -175,7 +181,22 @@ check_address(void *vaddr)
 bool create (const char *file, unsigned initial_size)
 {
 	check_address(file);
-	return filesys_create(file, initial_size);
+#ifndef FILESYS
+    return filesys_create(file, initial_size);
+#else
+    char file_name[15];
+    struct dir *dir;
+
+    if ((dir = find_dir_from_path(file, file_name)) == NULL)
+        return false;
+
+    bool success = true;
+    struct dir *dir_bu = thread_current()->working_dir;
+    thread_current()->working_dir = dir;
+    success = filesys_create(file_name, initial_size);
+    thread_current()->working_dir = dir_bu;
+	return success;
+#endif
 }
 
 /*** Jack ***/
@@ -375,4 +396,51 @@ void munmap (void *addr)
 {
     check_address(addr);
     do_munmap(addr);
+}
+
+/* Jack */
+bool mkdir (const char *dir)
+{
+    check_address(dir);
+    bool success;
+    
+    char dir_name[15];
+    struct dir *dir;
+    
+    if ((success = ((dir = find_dir_from_path(dir, dir_name)) != NULL)) == false)
+        goto done;
+
+    struct inode *chk_inode;
+    if ((success = !dir_lookup(dir, dir_name, &chk_inode)) == false) {
+        inode_close(chk_inode);
+        dir_close(dir);
+        goto done;
+    }
+
+    cluster_t inode_clst;
+    if ((success = ((inode_clst = fat_create_chain(0)) != 0)) == false) {
+        dir_close(dir);
+        goto done;
+    }
+
+    success = dir_create(cluster_to_sector(inode_clst), 16) && dir_add(dir, dir_name, cluster_to_sector(inode_clst), F_DIR);
+    if (!success) {
+        dir_close(dir);
+        fat_remove_chain(inode_clst, 0);
+        goto done;
+    }
+
+    struct inode *dir_inode;
+    struct dir *new_dir;
+    dir_inode = inode_open(cluster_to_sector(inode_clst));
+    new_dir =  dir_open(dir_inode);
+    success = dir_add(new_dir, "..", dir_get_inumber(dir), F_DIR) && dir_add(new_dir, ".", dir_get_inumber(new_dir), F_DIR);
+    if (!success) {
+        dir_remove(dir, dir_name);
+        dir_close(dir);
+        dir_close(new_dir);
+    }
+
+done:
+    return success;
 }
