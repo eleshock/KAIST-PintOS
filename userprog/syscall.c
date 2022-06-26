@@ -164,6 +164,14 @@ syscall_handler (struct intr_frame *f UNUSED)
         case SYS_MUNMAP : // eleshock
             munmap(f->R.rdi);
             break;
+        
+        case SYS_ISDIR : // yeopto
+            f->R.rax = isdir(f->R.rdi);
+            break;
+        
+        case SYS_CHDIR : // yeopto
+            f->R.rax = chdir(f->R.rdi);
+            break;
 
         case SYS_MKDIR : // Jack
             f->R.rax = mkdir(f->R.rdi);
@@ -252,18 +260,52 @@ void exit (int status)
 int open(const char *file)
 {
     check_address(file);                           // check validity of file ptr
-    struct file *new_file = filesys_open(file);    // file open, and get file ptr
+    /* prj4 filesys - yeopto */
+    char file_name[15];
 
-    if(!new_file) // fail
-    {
+    struct dir *found_dir;
+    if ((found_dir = find_dir_from_path(file, file_name)) == NULL)
+        return -1;
+
+    struct dir *bu_dir = thread_current()->working_dir;
+    thread_current()->working_dir = found_dir;
+    struct file *now_file = filesys_open(file_name);    // file open, and get file ptr
+    thread_current()->working_dir = bu_dir;
+
+    if (!now_file) {
         return -1;
     }
 
-    int fd = process_add_file(new_file);
-    if (fd == -1)
-        file_close(new_file);
-    
-    return fd; // return file descriptor for 'file'
+    switch (inode_get_type(file_get_inode(now_file)))
+    {
+    case F_ORD:
+        int fd = process_add_file(now_file);
+        if (fd == -1)
+            file_close(now_file);
+        
+        return fd; // return file descriptor for 'file'
+        break;
+    case F_DIR:
+        struct dir *now_dir = dir_open(file_get_inode(now_file));
+        file_set_dir(now_file, now_dir, true);
+
+        int fd = process_add_file(now_file);
+        if (fd == -1)
+            file_close(now_file);
+        
+        return fd;
+        break;
+    case F_LINK:
+        off_t length = file_length(now_file);
+        char *real_path = calloc(1, length + 1);
+        file_read(now_file, real_path, length);
+        file_close(now_file);
+
+        int ret = open(real_path);
+        free(real_path);
+        return ret;
+        break;
+    }
 }
 
 /*** hyeRexx ***/
@@ -402,6 +444,37 @@ void munmap (void *addr)
 {
     check_address(addr);
     do_munmap(addr);
+}
+
+/* prj4 filesys - yeopto */
+bool isdir (int fd) {
+    struct file *now_file = process_get_file(fd);
+    if (now_file == NULL) return false;    
+    return file_isdir(now_file);
+}
+
+/* prj4 filesys - yeopto */
+bool chdir (const char *dir) {
+    char buffer[15];
+
+    struct dir *new_dir = find_dir_from_path(dir, buffer);
+    struct inode *inode;
+    
+    if (!dir_lookup(new_dir, buffer, &inode)) {
+        dir_close(new_dir);
+        return false;
+    }
+    if (inode_get_type(inode) == F_DIR) {
+        struct dir *real_dir = dir_open(inode);
+        dir_close(thread_current()->working_dir);
+        thread_current()->working_dir = real_dir;
+        dir_close(new_dir);
+    } else {
+        dir_close(new_dir);
+        inode_close(inode);
+        return false;
+    }
+    return true;
 }
 
 /* Jack */
