@@ -141,7 +141,7 @@ fat_create (void) {
 	// yeopto
 	struct dir *root_dir = dir_open_root();
 	dir_add(root_dir, '..', cluster_to_sector (ROOT_DIR_CLUSTER), F_DIR);
-	dir_add(root_dir, '.', cluster_to_sector (ROOT_DIR_CLUSTER) ,F_DIR);
+	dir_add(root_dir, '.', cluster_to_sector (ROOT_DIR_CLUSTER), F_DIR);
 	dir_close(root_dir);
 
 	// Fill up ROOT_DIR_CLUSTER region with 0
