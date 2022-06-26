@@ -448,9 +448,8 @@ void munmap (void *addr)
 
 /* prj4 filesys - yeopto */
 bool isdir (int fd) {
-    if (fd < 0) return false;
     struct file *now_file = process_get_file(fd);
-    
+    if (now_file == NULL) return false;    
     return file_isdir(now_file);
 }
 
