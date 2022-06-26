@@ -443,9 +443,9 @@ bool mkdir (const char *dir)
     success = dir_add(new_dir, "..", dir_get_inumber(dir), F_DIR) && dir_add(new_dir, ".", dir_get_inumber(new_dir), F_DIR);
     if (!success) {
         dir_remove(dir, dir_name);
-        dir_close(dir);
-        dir_close(new_dir);
     }
+	dir_close(dir);
+        dir_close(new_dir);
 
 done:
     return success;
