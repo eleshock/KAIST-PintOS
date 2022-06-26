@@ -5,7 +5,7 @@
 #include "threads/synch.h"
 #include <stdio.h>
 #include <string.h>
-#include <filesys/directory.h> // yeopto
+#include "filesys/directory.h" // yeopto
 
 /* Should be less than DISK_SECTOR_SIZE */
 struct fat_boot {
