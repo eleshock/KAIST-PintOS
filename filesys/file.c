@@ -8,6 +8,8 @@ struct file {
 	struct inode *inode;        /* File's inode. */
 	off_t pos;                  /* Current position. */
 	bool deny_write;            /* Has file_deny_write() been called? */
+	bool is_dir;				/* prj4 filesys - yeopto */
+	struct dir *dir				/* prj5 filesys - yeopto */
 };
 
 /* Opens a file for the given INODE, of which it takes ownership,
@@ -173,3 +175,13 @@ file_isdir (struct file * file) {
 	ASSERT (file != NULL);
 	return file->isdir;
 }
+
+/* Jack */
+void
+file_set_dir (struct file *file, struct dir *dir, bool is_dir) {
+	ASSERT (file != NULL);
+	file->dir = dir;
+	file->is_dir = is_dir;
+	return;
+}
+

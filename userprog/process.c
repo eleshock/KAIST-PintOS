@@ -175,6 +175,12 @@ __do_fork (void *aux) {
 		goto error;
 #endif
 
+	/* Jack - Filesys */
+#ifdef FILESYS
+	curr_thread->working_dir = dir_reopen(parent->working_dir);
+#endif
+
+
     /*** hyeRexx : duplicate files ***/
     for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
     {
@@ -349,6 +355,11 @@ process_exit (void) {
 
 	/* Cleanup resources releated to virtual memory */
 	process_cleanup ();
+
+#ifdef FILESYS
+	/* Jack */
+	dir_close(thread_current()->working_dir);
+#endif
 
 	/* Close running file of current thread */
 	if (curr->running_file)

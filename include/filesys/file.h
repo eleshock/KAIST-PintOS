@@ -33,5 +33,7 @@ off_t file_length (struct file *);
 /* eleshock */
 struct dir *file_dir (struct file * file);
 bool file_isdir (struct file * file);
+/* Jack */
+void file_set_dir (struct file *file, struct dir *dir, bool is_dir);
 
 #endif /* filesys/file.h */
