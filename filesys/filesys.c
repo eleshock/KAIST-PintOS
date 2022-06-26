@@ -10,6 +10,7 @@
 
 /* eleshock */
 #include "filesys/fat.h"
+#include "threads/thread.h"
 
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
@@ -113,7 +114,7 @@ filesys_open (const char *name) {
  * or if an internal memory allocation fails. */
 bool
 filesys_remove (const char *name) {
-	struct dir *dir = dir_open_root ();
+	struct dir *dir = thread_current()->working_dir;
 	bool success = dir != NULL && dir_remove (dir, name);
 	dir_close (dir);
 

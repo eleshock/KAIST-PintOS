@@ -162,6 +162,20 @@ file_tell (struct file *file) {
 	return file->pos;
 }
 
+/* eleshock */
+struct dir *
+file_dir (struct file * file) {
+	ASSERT (file != NULL);
+	return file->dir;
+}
+
+/* eleshock */
+bool
+file_isdir (struct file * file) {
+	ASSERT (file != NULL);
+	return file->isdir;
+}
+
 /* Jack */
 void
 file_set_dir (struct file *file, struct dir *dir, bool is_dir) {
@@ -171,15 +185,3 @@ file_set_dir (struct file *file, struct dir *dir, bool is_dir) {
 	return;
 }
 
-// /*** Jack ***/
-// /* Lock acquire for file */
-// void file_lock_acquire (struct file *f)
-// {
-// 	inode_acquire(&f->inode);
-// }
-
-// /* Lock release for file */
-// void file_lock_release (struct file *f)
-// {
-// 	inode_release(&f->inode);
-// }
