@@ -11,6 +11,7 @@
  * retained, but much longer full path names must be allowed. */
 #define NAME_MAX 14
 
+struct dir; // Jack
 struct inode;
 
 /* Opening and closing directories. */
@@ -26,5 +27,9 @@ bool dir_lookup (const struct dir *, const char *name, struct inode **);
 bool dir_add (struct dir *, const char *name, disk_sector_t);
 bool dir_remove (struct dir *, const char *name);
 bool dir_readdir (struct dir *, char name[NAME_MAX + 1]);
+
+/* Jack */
+disk_sector_t dir_get_inumber (struct dir *dir);
+struct dir * find_dir_from_path (char *path_, char buffer[15]);
 
 #endif /* filesys/directory.h */

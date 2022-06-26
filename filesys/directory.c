@@ -6,6 +6,8 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "filesys/fat.h"
+#include "threads/palloc.h"
+#include "threads/vaddr.h"
 
 /* A directory. */
 struct dir {
@@ -29,7 +31,11 @@ struct dir_entry {
  * given SECTOR.  Returns true if successful, false on failure. */
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) {
+#ifndef FILESYS
 	return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+#else
+	return inode_create (sector, entry_cnt * sizeof (struct dir_entry), F_DIR);
+#endif
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -81,6 +87,13 @@ dir_get_inode (struct dir *dir) {
 	return dir->inode;
 }
 
+/* Jack */
+/* Returns the inode number of dir inode */
+disk_sector_t
+dir_get_inumber (struct dir *dir) {
+	return inode_get_inumber(dir->inode);
+}
+
 /* Searches DIR for a file with the given NAME.
  * If successful, returns true, sets *EP to the directory entry
  * if EP is non-null, and sets *OFSP to the byte offset of the
@@ -95,6 +108,7 @@ lookup (const struct dir *dir, const char *name,
 	ASSERT (dir != NULL);
 	ASSERT (name != NULL);
 
+#ifndef FILESYS
 	for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 			ofs += sizeof e)
 		if (e.in_use && !strcmp (name, e.name)) {
@@ -105,6 +119,30 @@ lookup (const struct dir *dir, const char *name,
 			return true;
 		}
 	return false;
+#else
+	bool success = false;
+
+	off_t length = inode_length(dir->inode);
+	off_t entry_count = length / (sizeof e);
+
+	size_t pages = length % PGSIZE == 0? length / PGSIZE: length / PGSIZE + 1;
+	struct dir_entry *entries = palloc_get_multiple(PAL_ZERO, pages);
+	inode_read_at (dir->inode, entries, length, 0);
+	
+	for (ofs = 0; ofs != entry_count; ++ofs) {
+		e = entries[ofs];
+		if (e.in_use && !strcmp (name, e.name)) {
+			if (ep != NULL)
+				*ep = e;
+			if (ofsp != NULL)
+				*ofsp = ofs * (sizeof e);
+			success = true;
+			break;
+		}
+	}
+	palloc_free_multiple(entries, pages);
+	return success;
+#endif
 }
 
 /* Searches DIR for a file with the given NAME
@@ -157,10 +195,29 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector) {
 	 * inode_read_at() will only return a short read at end of file.
 	 * Otherwise, we'd need to verify that we didn't get a short
 	 * read due to something intermittent such as low memory. */
+#ifndef FILESYS
 	for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 			ofs += sizeof e)
 		if (!e.in_use)
 			break;
+#else // Jack - 속도개선
+	off_t length = inode_length(dir->inode);
+	off_t entry_count = length / (sizeof e);
+
+	size_t pages = length % PGSIZE == 0? length / PGSIZE: length / PGSIZE + 1;
+	struct dir_entry *entries = palloc_get_multiple(PAL_ZERO, pages);
+	if (entries == NULL)
+		goto done;
+	inode_read_at (dir->inode, entries, length, 0);
+	
+	for (ofs = 0; ofs != entry_count; ++ofs) {
+		e = entries[ofs];
+		if (!e.in_use)
+			break;
+	}
+	ofs = ofs * (sizeof e);
+	palloc_free_multiple(entries, pages);
+#endif
 
 	/* Write slot. */
 	e.in_use = true;
@@ -223,4 +280,100 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1]) {
 		}
 	}
 	return false;
+}
+
+/* Jack */
+/* Parse directory of PATH and return last opened directory.
+ * If BUFFER is not NULL, last file name will be saved at BUFFER. 
+ * After using dir which is returned, caller has to free dir. */
+struct dir *
+find_dir_from_path (char *path_, char buffer[15]) {
+	if (path_ == NULL)
+		return NULL;
+	
+	// 사용자 영역의 path_ 유지 위해 path 새로 복제
+	char *path = calloc(1, strlen(path_));
+	ASSERT (path != NULL);
+	strlcpy(path, path_, strlen(path_));
+
+	struct dir *curr_dir = NULL;
+	char *curr_path;
+	char *remain_path;
+
+	curr_path = strtok_r(path, "/", &remain_path);
+
+	// 첫번째 파싱 후 절대경로 / . / .. 에 따라 디렉토리 이동
+	// 만약 첫번째가 파싱된게 path의 전부라면 이동안하고 그냥 반환
+	if (strchr("/", *path) != NULL)
+		goto root;
+
+	if (!strcmp("..", curr_path)) {
+		struct inode *dir_inode = NULL;
+		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
+		if (*remain_path == "\0"){
+			if (buffer != NULL)
+				strlcpy(buffer, "..", strlen(".."));
+			goto done;
+		}
+		if (dir_lookup(curr_dir, "..", &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
+			dir_close(curr_dir);
+			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
+		} else {
+			if (dir_inode != NULL)
+				inode_close(dir_inode);
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
+	} else if (!strcmp(".", curr_path)) {
+		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
+		if (*remain_path == "\0"){
+			if (buffer != NULL)
+				strlcpy(buffer, ".", strlen("."));
+			goto done;
+		}
+	} else {
+root:
+		struct inode *dir_inode = NULL;
+		ASSERT ((curr_dir = dir_open_root()) != NULL);
+		if (*remain_path == "\0"){
+			if (buffer != NULL)
+				strlcpy(buffer, curr_path, strlen(curr_path));
+			goto done;
+		}
+		if (dir_lookup(curr_dir, curr_path, &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
+			dir_close(curr_dir);
+			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
+		} else {
+			if (dir_inode != NULL)
+				inode_close(dir_inode);
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
+	}
+	
+	// 마지막 디렉토리에 도착하기 전까지 디렉토리를 계속 들어감
+	for (curr_path = strtok_r(NULL, " ", &remain_path); *remain_path != "\0"; curr_path = strtok_r(NULL, " ", &remain_path))
+	{
+		struct inode *dir_inode = NULL;
+		if (dir_lookup(curr_dir, curr_path, &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
+			dir_close(curr_dir);
+			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
+		} else {
+			if (dir_inode != NULL)
+				inode_close(dir_inode);
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
+	}
+
+	// 마지막 디렉토리 도착 후 마지막 파일 name을 저장
+	if (buffer != NULL)
+		strlcpy(buffer, curr_path, strlen(curr_path));
+
+done:
+	free(path);
+	return curr_dir;
 }

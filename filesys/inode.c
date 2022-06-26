@@ -14,16 +14,19 @@
 /* On-disk inode.
  * Must be exactly DISK_SECTOR_SIZE bytes long. */
 struct inode_disk {
-
 /* eleshock */
 #ifdef EFILESYS
 	cluster_t start; // for project4
+	enum file_type type; // Jack
+	off_t length;                       /* File size in bytes. */
+	unsigned magic;                     /* Magic number. */
+	uint32_t unused[124];               /* Not used. */
 #else
 	disk_sector_t start;                /* First data sector. */
-#endif
 	off_t length;                       /* File size in bytes. */
 	unsigned magic;                     /* Magic number. */
 	uint32_t unused[125];               /* Not used. */
+#endif
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -107,15 +110,19 @@ check_and_extend_file (struct inode *inode, off_t pos, off_t size) {
 		}
 	}
 
-	uint8_t *bounce = calloc (1, DISK_SECTOR_SIZE);
-	if (bounce == NULL)
-		return false;
-	uint32_t eof_ofs = inode->data.length % DISK_SECTOR_SIZE;
-	uint32_t eof_left = DISK_SECTOR_SIZE - eof_ofs;
-	disk_read (filesys_disk, cluster_to_sector(last), bounce);
-	memset (bounce + eof_ofs, 0, eof_left);
-	disk_write (filesys_disk, cluster_to_sector(last), bounce); 
-	free(bounce);	
+	/* Jack */
+	/* 현 EOF가 있는 섹터에서 EOF 이후의 공간을 0으로 채우는 부분
+	 * 그러나 inode create에서 파일을 생성할 때 애초에 모든 섹터를 0으로 채워놨기 때문에
+	 * 현재 작업은 중복인 듯 하여 주석처리함 */
+	// uint8_t *bounce = calloc (1, DISK_SECTOR_SIZE);
+	// if (bounce == NULL)
+	// 	return false;
+	// uint32_t eof_ofs = inode->data.length % DISK_SECTOR_SIZE;
+	// uint32_t eof_left = DISK_SECTOR_SIZE - eof_ofs;
+	// disk_read (filesys_disk, cluster_to_sector(last), bounce);
+	// memset (bounce + eof_ofs, 0, eof_left);
+	// disk_write (filesys_disk, cluster_to_sector(last), bounce); 
+	// free(bounce);	
 
 	inode->data.length = pos + size;
 	disk_write (filesys_disk, cluster_to_sector(inode->cluster), &inode->data);
@@ -138,8 +145,9 @@ inode_init (void) {
  * disk.
  * Returns true if successful.
  * Returns false if memory or disk allocation fails. */
+#ifdef EFILESYS
 bool
-inode_create (disk_sector_t sector, off_t length) {
+inode_create (disk_sector_t sector, off_t length, enum file_type type) {
 	struct inode_disk *disk_inode = NULL;
 	bool success = false;
 
@@ -152,26 +160,10 @@ inode_create (disk_sector_t sector, off_t length) {
 	disk_inode = calloc (1, sizeof *disk_inode);
 	if (disk_inode != NULL) {
 		/* Jack */
-#ifndef EFILESYS
-		size_t sectors = bytes_to_sectors (length);
-		disk_inode->length = length;
-		disk_inode->magic = INODE_MAGIC;
-		if (free_map_allocate (sectors, &disk_inode->start)) {
-			disk_write (filesys_disk, sector, disk_inode);
-			if (sectors > 0) {
-				static char zeros[DISK_SECTOR_SIZE];
-				size_t i;
-
-				for (i = 0; i < sectors; i++) 
-					disk_write (filesys_disk, disk_inode->start + i, zeros); 
-			}
-			success = true; 
-		}
-		free (disk_inode);
-#else
 		cluster_t clusters = length > 0? bytes_to_sectors (length): 1;
 		disk_inode->length = length;
 		disk_inode->magic = INODE_MAGIC;
+		disk_inode->type = type;
 		if (fat_create_multi_chain(0, clusters, &disk_inode->start)) {
 			disk_write (filesys_disk, sector, disk_inode);
 			
@@ -187,12 +179,43 @@ inode_create (disk_sector_t sector, off_t length) {
 			}
 			success = true; 
 		}
-		free (disk_inode);
-#endif 
-		
+		free (disk_inode);		
 	}
 	return success;
 }
+#else
+bool
+inode_create (disk_sector_t sector, off_t length) {
+	struct inode_disk *disk_inode = NULL;
+	bool success = false;
+
+	ASSERT (length >= 0);
+
+	/* If this assertion fails, the inode structure is not exactly
+	 * one sector in size, and you should fix that. */
+	ASSERT (sizeof *disk_inode == DISK_SECTOR_SIZE);
+
+	disk_inode = calloc (1, sizeof *disk_inode);
+	if (disk_inode != NULL) {
+		size_t sectors = bytes_to_sectors (length);
+		disk_inode->length = length;
+		disk_inode->magic = INODE_MAGIC;
+		if (free_map_allocate (sectors, &disk_inode->start)) {
+			disk_write (filesys_disk, sector, disk_inode);
+			if (sectors > 0) {
+				static char zeros[DISK_SECTOR_SIZE];
+				size_t i;
+
+				for (i = 0; i < sectors; i++) 
+					disk_write (filesys_disk, disk_inode->start + i, zeros); 
+			}
+			success = true; 
+		}
+		free (disk_inode);
+	}
+	return success;
+}
+#endif 
 
 /* Reads an inode from SECTOR
  * and returns a `struct inode' that contains it.
@@ -260,7 +283,7 @@ inode_get_inumber (const struct inode *inode) {
 #ifndef EFILESYS
 	return inode->sector;
 #else
-	return inode->cluster;
+	return cluster_to_sector(inode->cluster);
 #endif
 }
 
@@ -438,6 +461,12 @@ inode_length (const struct inode *inode) {
 	return inode->data.length;
 }
 
+/* Jack */
+/* Return file type from inode */
+enum file_type
+inode_get_type (const struct inode *inode) {
+	return inode->data.type;
+}
 
 // /*** Jack ***/
 // /* Lock acquire for inode */
