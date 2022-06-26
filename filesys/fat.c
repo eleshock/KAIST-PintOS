@@ -136,6 +136,7 @@ fat_create (void) {
 	// root dir 위치에 inode 없이 directory로 쓴다? 어쩌자는거지? 그냥 inode만드는 방식으로 바꿀래...
 	if (!dir_create (cluster_to_sector (ROOT_DIR_CLUSTER), 16))
 		PANIC ("root directory creation failed");
+
 	// Fill up ROOT_DIR_CLUSTER region with 0
 	// uint8_t *buf = calloc (1, DISK_SECTOR_SIZE);
 	// if (buf == NULL)

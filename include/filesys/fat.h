@@ -7,6 +7,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+/* Jack */
+#include "filesys/directory.h"
+#include "filesys/inode.h"
+#include "threads/thread.h"
 
 typedef uint32_t cluster_t;  /* Index of a cluster within FAT. */
 
