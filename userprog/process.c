@@ -487,7 +487,11 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	// /* Open executable file. */
+	struct dir *bu_dir = thread_current()->working_dir;
+	thread_current()->working_dir = dir_open_root();
 	file = filesys_open (file_name);
+	dir_close(thread_current()->working_dir);
+	thread_current()->working_dir = bu_dir;
 	if (file == NULL) {  
 		printf ("load: %s: open failed\n", file_name);
 		goto done;

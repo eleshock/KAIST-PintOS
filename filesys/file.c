@@ -173,7 +173,7 @@ file_dir (struct file * file) {
 bool
 file_isdir (struct file * file) {
 	ASSERT (file != NULL);
-	return file->isdir;
+	return file->is_dir;
 }
 
 /* Jack */

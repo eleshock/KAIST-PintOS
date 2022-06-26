@@ -378,27 +378,25 @@ find_dir_from_path (char *path_, char buffer[15]) {
 		return NULL;
 	
 	// 사용자 영역의 path_ 유지 위해 path 새로 복제
-	char *path = calloc(1, strlen(path_));
+	char *path = calloc(1, strlen(path_)+1);
 	ASSERT (path != NULL);
-	strlcpy(path, path_, strlen(path_));
+	strlcpy(path, path_, strlen(path_)+1);
 
 	struct dir *curr_dir = NULL;
 	char *curr_path;
 	char *remain_path;
 
 	curr_path = strtok_r(path, "/", &remain_path);
-
 	// 첫번째 파싱 후 절대경로 / . / .. 에 따라 디렉토리 이동
 	// 만약 첫번째가 파싱된게 path의 전부라면 이동안하고 그냥 반환
-	if (strchr("/", *path) != NULL)
-		goto root;
+	bool is_root = (strchr("/", *path) != NULL);
 
-	if (!strcmp("..", curr_path)) {
+	if (!strcmp("..", curr_path) && !is_root) {
 		struct inode *dir_inode = NULL;
 		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
-		if (*remain_path == "\0"){
+		if (*remain_path == '\0'){
 			if (buffer != NULL)
-				strlcpy(buffer, "..", strlen(".."));
+				strlcpy(buffer, "..", strlen("..") + 1);
 			goto done;
 		}
 		if (dir_lookup(curr_dir, "..", &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
@@ -411,20 +409,19 @@ find_dir_from_path (char *path_, char buffer[15]) {
 			curr_dir = NULL;
 			goto done;
 		}
-	} else if (!strcmp(".", curr_path)) {
+	} else if (!strcmp(".", curr_path) && !is_root) {
 		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
-		if (*remain_path == "\0"){
+		if (*remain_path == '\0'){
 			if (buffer != NULL)
-				strlcpy(buffer, ".", strlen("."));
+				strlcpy(buffer, ".", strlen(".") + 1);
 			goto done;
 		}
 	} else {
-root:
 		struct inode *dir_inode = NULL;
 		ASSERT ((curr_dir = dir_open_root()) != NULL);
-		if (*remain_path == "\0"){
+		if (*remain_path == '\0'){
 			if (buffer != NULL)
-				strlcpy(buffer, curr_path, strlen(curr_path));
+				strlcpy(buffer, curr_path, strlen(curr_path) + 1);
 			goto done;
 		}
 		if (dir_lookup(curr_dir, curr_path, &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
@@ -440,7 +437,7 @@ root:
 	}
 	
 	// 마지막 디렉토리에 도착하기 전까지 디렉토리를 계속 들어감
-	for (curr_path = strtok_r(NULL, " ", &remain_path); *remain_path != "\0"; curr_path = strtok_r(NULL, " ", &remain_path))
+	for (curr_path = strtok_r(NULL, " ", &remain_path); *remain_path != '\0'; curr_path = strtok_r(NULL, " ", &remain_path))
 	{
 		struct inode *dir_inode = NULL;
 		if (dir_lookup(curr_dir, curr_path, &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
@@ -457,7 +454,7 @@ root:
 
 	// 마지막 디렉토리 도착 후 마지막 파일 name을 저장
 	if (buffer != NULL)
-		strlcpy(buffer, curr_path, strlen(curr_path));
+		strlcpy(buffer, curr_path, strlen(curr_path) + 1);
 
 done:
 	free(path);

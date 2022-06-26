@@ -62,8 +62,12 @@ bool readdir (int fd, char *name);
 int inumber (int fd);
 
 /* Jack */
-bool mkdir (const char *dir);
+bool mkdir (const char *dir_);
 int symlink (const char *target, const char *linkpath);
+
+/* yeopto */
+bool isdir (int fd);
+bool chdir (const char *dir);
 
 /* System call.
  *
@@ -223,6 +227,7 @@ bool create (const char *file, unsigned initial_size)
     thread_current()->working_dir = dir;
     success = filesys_create(file_name, initial_size);
     thread_current()->working_dir = dir_bu;
+    dir_close(dir);
 	return success;
 #endif
 }
@@ -241,6 +246,7 @@ bool remove (const char *file)
     thread_current()->working_dir = dir;
     success = filesys_remove(file_name);
     thread_current()->working_dir = bu_dir;
+    dir_close(dir);
 	return success;
 }
 
@@ -295,21 +301,20 @@ int open(const char *file)
     thread_current()->working_dir = found_dir;
     struct file *now_file = filesys_open(file_name);    // file open, and get file ptr
     thread_current()->working_dir = bu_dir;
+    dir_close(found_dir);
 
     if (!now_file) {
         return -1;
     }
 
-    switch (inode_get_type(file_get_inode(now_file)))
-    {
-    case F_ORD:
+    enum file_type t = inode_get_type(file_get_inode(now_file));
+    if (t == F_ORD) {
         int fd = process_add_file(now_file);
         if (fd == -1)
             file_close(now_file);
         
         return fd; // return file descriptor for 'file'
-        break;
-    case F_DIR:
+    } else if (t == F_DIR) {
         struct dir *now_dir = dir_open(file_get_inode(now_file));
         file_set_dir(now_file, now_dir, true);
 
@@ -318,8 +323,7 @@ int open(const char *file)
             file_close(now_file);
         
         return fd;
-        break;
-    case F_LINK:
+    } else if (t == F_LINK) {
         off_t length = file_length(now_file);
         char *real_path = calloc(1, length + 1);
         file_read(now_file, real_path, length);
@@ -328,7 +332,6 @@ int open(const char *file)
         int ret = open(real_path);
         free(real_path);
         return ret;
-        break;
     }
 }
 
@@ -527,15 +530,15 @@ bool chdir (const char *dir) {
 }
 
 /* Jack */
-bool mkdir (const char *dir)
+bool mkdir (const char *dir_)
 {
-    check_address(dir);
+    check_address(dir_);
     bool success;
     
     char dir_name[15];
     struct dir *dir;
     
-    if ((success = ((dir = find_dir_from_path(dir, dir_name)) != NULL)) == false)
+    if ((success = ((dir = find_dir_from_path(dir_, dir_name)) != NULL)) == false)
         goto done;
 
     struct inode *chk_inode;
@@ -593,7 +596,7 @@ int symlink (const char *target, const char *linkpath)
         goto done;
     }
 
-    if (!(inode_create(cluster_to_sector(link_clst), strlen(target) + 1) && dir_add(link_dir, link_name, cluster_to_sector(link_clst)))) {
+    if (!(inode_create(cluster_to_sector(link_clst), strlen(target) + 1, F_LINK) && dir_add(link_dir, link_name, cluster_to_sector(link_clst), F_LINK))) {
         dir_close(link_dir);
         fat_remove_chain(link_clst, 0);
         goto done;
