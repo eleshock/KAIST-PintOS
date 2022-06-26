@@ -473,22 +473,23 @@ void munmap (void *addr)
 /* eleshock */
 bool readdir (int fd, char *name)
 {
+    check_address(name);
     if (!isdir(fd)) return false;
     
     struct file *now_file = process_get_file(fd);
+    if (now_file == NULL) return false;
     struct dir *dir = file_dir(now_file);
+    if (dir == NULL) return false;
     return dir_readdir(dir, name);
 }
 
 /* eleshock */
 int inumber (int fd)
 {
-
-    ASSERT(fd >= 0)
-
     struct file *now_file = process_get_file(fd);
+    if (now_file == NULL) return -1;
     struct inode *inode = file_get_inode(now_file);
-    
+	
     ASSERT(inode != NULL)
 
     return inode_get_inumber(inode);
