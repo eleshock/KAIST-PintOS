@@ -2,8 +2,11 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
+#include <stdbool.h> // eleshock
 
 struct inode;
+
+struct file;
 
 /* Opening and closing files. */
 struct file *file_open (struct inode *);
@@ -27,9 +30,8 @@ void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
 
-// /*** Jack ***/
-// /* Lock for file */
-// void file_lock_acquire (struct file *f);
-// void file_lock_release (struct file *f);
+/* eleshock */
+struct dir *file_dir (struct file * file);
+bool file_isdir (struct file * file);
 
 #endif /* filesys/file.h */

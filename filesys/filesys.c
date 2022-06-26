@@ -10,6 +10,7 @@
 
 /* eleshock */
 #include "filesys/fat.h"
+#include "threads/thread.h"
 
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
@@ -69,7 +70,7 @@ filesys_create (const char *name, off_t initial_size) {
 	cluster_t clst = fat_create_chain (0);
 	bool success = (dir != NULL
 			&& inode_create (cluster_to_sector(clst), initial_size)
-			&& dir_add (dir, name, cluster_to_sector(clst)));
+			&& dir_add (dir, name, cluster_to_sector(clst), F_ORD));
 	if (!success && clst != 0)
 		fat_remove_chain (clst, 0);
 #else
@@ -109,7 +110,7 @@ filesys_open (const char *name) {
  * or if an internal memory allocation fails. */
 bool
 filesys_remove (const char *name) {
-	struct dir *dir = dir_open_root ();
+	struct dir *dir = thread_current()->working_dir;
 	bool success = dir != NULL && dir_remove (dir, name);
 	dir_close (dir);
 

@@ -23,6 +23,8 @@
 /* eleshock */
 #include "vm/file.h"
 #include "vm/vm.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 
 
 void syscall_entry (void);
@@ -54,6 +56,9 @@ static struct lock filesys_lock;                    /*** GrilledSalmon ***/
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap (void *addr);
 
+/* eleshock */
+bool readdir (int fd, char *name);
+int inumber (int fd);
 
 /* System call.
  *
@@ -160,6 +165,14 @@ syscall_handler (struct intr_frame *f UNUSED)
         case SYS_MUNMAP : // eleshock
             munmap(f->R.rdi);
             break;
+
+        case SYS_READDIR :
+            f->R.rax = readdir(f->R.rdi, f->R.rsi);
+            break;
+
+        case SYS_INUMBER :
+            f->R.rax = inumber(f->R.rdi);
+            break;
     }
 }
 
@@ -182,7 +195,17 @@ bool create (const char *file, unsigned initial_size)
 bool remove (const char *file)
 {
 	check_address(file);
-	return filesys_remove(file);
+    
+    char file_name[15];
+    struct dir *dir;
+    if ((dir = find_dir_from_path(file, file_name)) == NULL) return false;
+
+    bool success;
+    struct dir *bu_dir = thread_current()->working_dir;
+    thread_current()->working_dir = dir;
+    success = filesys_remove(file_name);
+    thread_current()->working_dir = bu_dir;
+	return success;
 }
 
 /*** Jack ***/
@@ -375,4 +398,28 @@ void munmap (void *addr)
 {
     check_address(addr);
     do_munmap(addr);
+}
+
+/* eleshock */
+bool readdir (int fd, char *name)
+{
+    if (!isdir(fd)) return false;
+    
+    struct file *now_file = process_get_file(fd);
+    struct dir *dir = file_dir(now_file);
+    return dir_readdir(dir, name);
+}
+
+/* eleshock */
+int inumber (int fd)
+{
+
+    ASSERT(fd >= 0)
+
+    struct file *now_file = process_get_file(fd);
+    struct inode *inode = file_get_inode(now_file);
+    
+    ASSERT(inode != NULL)
+
+    return inode_get_inumber(inode);
 }

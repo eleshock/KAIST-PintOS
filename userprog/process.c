@@ -848,7 +848,12 @@ void process_close_file (int fd)
 	struct file *f = thread_current()->fdt[fd];
 	if (f == NULL)
 		return;
-
+	
+	/* eleshock */
+	struct dir *dir = file_dir(f);
+	if (isdir (fd))
+		free(dir);
+		
 	file_close(f);
 	thread_current()->fdt[fd] = NULL;
 }
