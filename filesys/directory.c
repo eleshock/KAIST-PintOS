@@ -355,15 +355,11 @@ bool dir_readdir(struct dir *dir, char name[NAME_MAX + 1])
 	struct dir_entry e;
 
 	/* eleshock */
-	if (name == '.' || name == '..')
-	{
-		return false;
-	}
 
 	while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e)
 	{
 		dir->pos += sizeof e;
-		if (e.in_use)
+		if (e.in_use && (strchr(".", *e.name) == NULL))
 		{
 			strlcpy(name, e.name, NAME_MAX + 1);
 			return true;
