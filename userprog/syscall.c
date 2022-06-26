@@ -57,6 +57,7 @@ void munmap (void *addr);
 
 /* Jack */
 bool mkdir (const char *dir);
+int symlink (const char *target, const char *linkpath);
 
 /* System call.
  *
@@ -166,6 +167,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 
         case SYS_MKDIR : // Jack
             f->R.rax = mkdir(f->R.rdi);
+            break;
+
+        case SYS_SYMLINK : // Jack
+            f->R.rax = symlink(f->R.rdi, f->R.rsi);
+            break;
     }
 }
 
@@ -440,6 +446,46 @@ bool mkdir (const char *dir)
         dir_close(dir);
         dir_close(new_dir);
     }
+
+done:
+    return success;
+}
+
+/* Jack */
+int symlink (const char *target, const char *linkpath)
+{
+    check_address(target);
+    check_address(linkpath);
+
+    int success = -1;
+
+    struct dir *link_dir;
+    char link_name[15];
+
+    if ((link_dir = find_dir_from_path(linkpath, link_name)) == NULL)
+        goto done;
+
+    cluster_t link_clst;
+    if ((link_clst = fat_create_chain(0)) == 0) {
+        dir_close(link_dir);
+        goto done;
+    }
+
+    if (!(inode_create(cluster_to_sector(link_clst), strlen(target) + 1) && dir_add(link_dir, link_name, cluster_to_sector(link_clst)))) {
+        dir_close(link_dir);
+        fat_remove_chain(link_clst, 0);
+        goto done;
+    }
+
+    struct inode *link_inode = inode_open(cluster_to_sector(link_clst));
+    if (link_inode != NULL) {
+        inode_write_at(link_inode, target, strlen(target), 0);
+        inode_close(link_inode);
+        success = 0;
+    } else {
+        dir_remove(link_dir, link_name);
+    }
+    dir_close(link_dir);
 
 done:
     return success;
