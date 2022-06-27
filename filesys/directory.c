@@ -323,8 +323,8 @@ bool dir_remove(struct dir *dir, const char *name)
 			goto done;
 		inode_read_at (inode, entries, length, 0);
 		
-		for (ofs = 2; ofs != entry_count; ++ofs) {
-			ee = entries[ofs];
+		for (off_t oofs = 2; oofs != entry_count; ++oofs) {
+			ee = entries[oofs];
 			if (ee.in_use){
 				palloc_free_multiple(entries, pages);
 				goto done;
@@ -369,12 +369,45 @@ bool dir_readdir(struct dir *dir, char name[NAME_MAX + 1])
 }
 
 /* Jack */
+bool
+dir_check_link (struct inode **inode) {
+	ASSERT (inode != NULL);
+
+	if (inode_get_type(*inode) == F_ORD) {
+		return false;
+	} else if (inode_get_type(*inode) == F_DIR) {
+		return true;
+	} else {
+		off_t length = inode_length(*inode);
+		struct dir *dir;
+        char *real_path = calloc(1, length + 1);
+		char file_name[15];
+		inode_read_at(*inode, real_path, length, 0);
+		inode_close(*inode);
+		*inode = NULL;
+		if ((dir = find_dir_from_path(real_path, file_name)) == NULL) {
+			free(real_path);
+			return false;
+		}
+		free(real_path);
+
+		if (!dir_lookup(dir, file_name, inode)) {
+			dir_close(dir);
+			return false;
+		}
+		dir_close(dir);
+
+		return dir_check_link(inode);
+	}
+}
+
+/* Jack */
 /* Parse directory of PATH and return last opened directory.
  * If BUFFER is not NULL, last file name will be saved at BUFFER. 
  * After using dir which is returned, caller has to free dir. */
 struct dir *
 find_dir_from_path (char *path_, char buffer[15]) {
-	if (path_ == NULL)
+	if (path_ == NULL || strlen(path_) == 0)
 		return NULL;
 	
 	// 사용자 영역의 path_ 유지 위해 path 새로 복제
@@ -387,19 +420,20 @@ find_dir_from_path (char *path_, char buffer[15]) {
 	char *remain_path;
 
 	curr_path = strtok_r(path, "/", &remain_path);
+	if (buffer != NULL && curr_path == NULL)
+		*buffer = '\0';
 	// 첫번째 파싱 후 절대경로 / . / .. 에 따라 디렉토리 이동
 	// 만약 첫번째가 파싱된게 path의 전부라면 이동안하고 그냥 반환
-	bool is_root = (strchr("/", *path) != NULL);
 
-	if (!strcmp("..", curr_path) && !is_root) {
+	if ((strchr("/", *path) != NULL)) {
 		struct inode *dir_inode = NULL;
-		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
+		ASSERT ((curr_dir = dir_open_root()) != NULL);
 		if (*remain_path == '\0'){
-			if (buffer != NULL)
-				strlcpy(buffer, "..", strlen("..") + 1);
+			if (buffer != NULL && curr_path != NULL && strlen(curr_path) < 15)
+				strlcpy(buffer, curr_path, strlen(curr_path) + 1);
 			goto done;
 		}
-		if (dir_lookup(curr_dir, "..", &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
+		if (dir_lookup(curr_dir, curr_path, &dir_inode) && dir_check_link(&dir_inode)) {
 			dir_close(curr_dir);
 			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
 		} else {
@@ -409,22 +443,55 @@ find_dir_from_path (char *path_, char buffer[15]) {
 			curr_dir = NULL;
 			goto done;
 		}
-	} else if (!strcmp(".", curr_path) && !is_root) {
+	} else if (!strcmp("..", curr_path)) {
+		struct inode *dir_inode = NULL;
 		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
+		if (inode_get_removed(dir_get_inode(curr_dir))) {
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
 		if (*remain_path == '\0'){
-			if (buffer != NULL)
+			if (buffer != NULL && curr_path != NULL)
+				strlcpy(buffer, "..", strlen("..") + 1);
+			goto done;
+		}
+		if (dir_lookup(curr_dir, "..", &dir_inode) && dir_check_link(&dir_inode)) {
+			dir_close(curr_dir);
+			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
+		} else {
+			if (dir_inode != NULL)
+				inode_close(dir_inode);
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
+	} else if (!strcmp(".", curr_path)) {
+		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
+		if (inode_get_removed(dir_get_inode(curr_dir))) {
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
+		if (*remain_path == '\0'){
+			if (buffer != NULL && curr_path != NULL)
 				strlcpy(buffer, ".", strlen(".") + 1);
 			goto done;
 		}
 	} else {
 		struct inode *dir_inode = NULL;
-		ASSERT ((curr_dir = dir_open_root()) != NULL);
+		ASSERT ((curr_dir = dir_reopen(thread_current()->working_dir)) != NULL);
+		if (inode_get_removed(dir_get_inode(curr_dir))) {
+			dir_close(curr_dir);
+			curr_dir = NULL;
+			goto done;
+		}
 		if (*remain_path == '\0'){
-			if (buffer != NULL)
+			if (buffer != NULL && curr_path != NULL && strlen(curr_path) < 15)
 				strlcpy(buffer, curr_path, strlen(curr_path) + 1);
 			goto done;
 		}
-		if (dir_lookup(curr_dir, curr_path, &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
+		if (dir_lookup(curr_dir, curr_path, &dir_inode) && dir_check_link(&dir_inode)) {
 			dir_close(curr_dir);
 			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
 		} else {
@@ -437,10 +504,10 @@ find_dir_from_path (char *path_, char buffer[15]) {
 	}
 	
 	// 마지막 디렉토리에 도착하기 전까지 디렉토리를 계속 들어감
-	for (curr_path = strtok_r(NULL, " ", &remain_path); *remain_path != '\0'; curr_path = strtok_r(NULL, " ", &remain_path))
+	for (curr_path = strtok_r(NULL, "/", &remain_path); *remain_path != '\0'; curr_path = strtok_r(NULL, "/", &remain_path))
 	{
 		struct inode *dir_inode = NULL;
-		if (dir_lookup(curr_dir, curr_path, &dir_inode) && inode_get_type(dir_inode) == F_DIR) {
+		if (dir_lookup(curr_dir, curr_path, &dir_inode) && dir_check_link(&dir_inode)) {
 			dir_close(curr_dir);
 			ASSERT ((curr_dir = dir_open(dir_inode)) != NULL);
 		} else {
@@ -453,7 +520,7 @@ find_dir_from_path (char *path_, char buffer[15]) {
 	}
 
 	// 마지막 디렉토리 도착 후 마지막 파일 name을 저장
-	if (buffer != NULL)
+	if (buffer != NULL && curr_path != NULL && strlen(curr_path) < 15)
 		strlcpy(buffer, curr_path, strlen(curr_path) + 1);
 
 done:

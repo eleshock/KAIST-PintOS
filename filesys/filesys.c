@@ -34,9 +34,6 @@ filesys_init (bool format) {
 		do_format ();
 
 	fat_open ();
-
-	/* Jack */
-	/* root dir 초기화 후 초기 thread의 초기 working dir를 저장 */
 	thread_current()->working_dir = dir_open_root();
 #else
 	/* Original FS */
@@ -116,6 +113,7 @@ bool
 filesys_remove (const char *name) {
 	struct dir *dir = dir_reopen(thread_current()->working_dir);
 	bool success = dir != NULL && dir_remove (dir, name);
+
 	dir_close (dir);
 
 	return success;

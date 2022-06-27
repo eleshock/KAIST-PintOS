@@ -16,6 +16,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "filesys/directory.h"
 
 /* for MLFQS */					/*** GrilledSalmon ***/
 #define NICE_DEFAULT 0

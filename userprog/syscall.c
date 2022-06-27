@@ -140,7 +140,9 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         
         case SYS_OPEN :
+            check_address(f->R.rdi);
             f->R.rax = open(f->R.rdi); // returns new file descriptor
+            // printf("\nopened fd : %d\n", f->R.rax);
             break;
 
         case SYS_FILESIZE : /*** debugging genie : phase 2 ***/
@@ -218,8 +220,12 @@ bool create (const char *file, unsigned initial_size)
 #else
     char file_name[15];
     struct dir *dir;
+    *file_name = '\0';
 
     if ((dir = find_dir_from_path(file, file_name)) == NULL)
+        return false;
+
+    if (strlen(file_name) == 0)
         return false;
 
     bool success = true;
@@ -289,21 +295,28 @@ void exit (int status)
 /*** debugging genie : do we need to check sysout, sysin? ***/
 int open(const char *file)
 {
-    check_address(file);                           // check validity of file ptr
     /* prj4 filesys - yeopto */
     char file_name[15];
 
     struct dir *found_dir;
     if ((found_dir = find_dir_from_path(file, file_name)) == NULL)
         return -1;
+    // printf("\nnow dir : %p\n", dir_get_inode(thread_current()->working_dir));
+    struct file *now_file = NULL;
+    if (strlen(file_name) != 0) {
+        // printf("\nfile name : %s\n", file_name);
+        struct dir *bu_dir = thread_current()->working_dir;
+        thread_current()->working_dir = found_dir;
+        now_file = filesys_open(file_name);    // file open, and get file ptr
+        thread_current()->working_dir = bu_dir;
+        dir_close(found_dir);
+        // printf("\nnow file : %p\n", file_get_inode(now_file));
+        // printf("\nnow file type : %d\n", inode_get_type(file_get_inode(now_file)));
+    } else if (sector_to_cluster(dir_get_inumber(found_dir)) == ROOT_DIR_CLUSTER) {
+        now_file = file_open(dir_get_inode(found_dir));
+    }
 
-    struct dir *bu_dir = thread_current()->working_dir;
-    thread_current()->working_dir = found_dir;
-    struct file *now_file = filesys_open(file_name);    // file open, and get file ptr
-    thread_current()->working_dir = bu_dir;
-    dir_close(found_dir);
-
-    if (!now_file) {
+    if (!now_file || inode_get_removed(file_get_inode(now_file))) {
         return -1;
     }
 
@@ -413,6 +426,9 @@ int write (int fd, void *buffer, unsigned size)
     if (now_file == NULL || fd == 0){   // fd로 stdin이 들어왔거나 file이 없는 경우
         return -1;
     }
+
+    if (inode_get_type(file_get_inode(now_file)) != F_ORD)
+        return -1;
 
     lock_acquire(&filesys_lock);
     uint64_t read_len = file_write(now_file, buffer, size);
@@ -526,6 +542,7 @@ bool chdir (const char *dir) {
         inode_close(inode);
         return false;
     }
+    // printf("\nchdir : %s, dir inode : %p\n",dir,dir_get_inode(thread_current()->working_dir));
     return true;
 }
 
@@ -570,8 +587,9 @@ bool mkdir (const char *dir_)
         dir_remove(dir, dir_name);
     }
 	dir_close(dir);
-        dir_close(new_dir);
+    dir_close(new_dir);
 
+    // printf("\nmkdir : %s\n", dir_);
 done:
     return success;
 }

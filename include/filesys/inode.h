@@ -28,5 +28,6 @@ off_t inode_length (const struct inode *);
 
 /*** Jack ***/
 enum file_type inode_get_type (const struct inode *inode);
+bool inode_get_removed (struct inode *inode);
 
 #endif /* filesys/inode.h */

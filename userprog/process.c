@@ -78,7 +78,7 @@ initd (void *f_name) {
 // #endif
   
 	process_init ();
-
+	thread_current()->working_dir = dir_open_root();
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -184,7 +184,7 @@ __do_fork (void *aux) {
     /*** hyeRexx : duplicate files ***/
     for(int fd = curr_thread->fd_edge; fd < parent->fd_edge; fd = ++(curr_thread->fd_edge)) 
     {
-        if(parent->fdt[fd] == NULL) continue;
+        if(parent->fdt[fd] == NULL) continue; 
         curr_thread->fdt[fd] = file_duplicate(parent->fdt[fd]);
         if(curr_thread->fdt[fd] == NULL) goto error;
     }
@@ -843,7 +843,6 @@ setup_stack (struct intr_frame *if_) {
 }
 #endif /* VM */
 
-#ifdef USERPROG
 /*** Jack ***/
 /*** Return file table pointer matched by fd in file descriptor table of current thread  ***/
 struct file *process_get_file(int fd)
@@ -880,7 +879,14 @@ int process_add_file(struct file *f)
     int new_fd = curr_thread->fd_edge++;    // get fd_edge and ++
     ASSERT(new_fd > 1);
 	if (new_fd > 128)
-		return -1;
+		new_fd = 2;
+	while (curr_thread->fdt[new_fd] != NULL) {
+		++new_fd;
+		if (new_fd == curr_thread->fd_edge)
+			break;
+		if (new_fd > 128)
+			new_fd = 2;
+	}
     curr_thread->fdt[new_fd] = f;    // set *new_fd = new_file
 
     return new_fd;
@@ -920,5 +926,3 @@ void remove_child_process(struct thread *cp)
 	palloc_free_page(cp);
 	return;
 }
-
-#endif // USERPROG

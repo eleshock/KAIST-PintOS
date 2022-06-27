@@ -282,19 +282,19 @@ fat_get (cluster_t clst) {
 	/* TODO: Your code goes here. */
 	cluster_t ret;
 
-	lock_acquire(&fat_fs->read_lock);
-	fat_fs->read_count++;
-	if (fat_fs->read_count == 1)
-		lock_acquire(&fat_fs->write_lock);
-	lock_release(&fat_fs->read_lock);
+	// lock_acquire(&fat_fs->read_lock);
+	// fat_fs->read_count++;
+	// if (fat_fs->read_count == 1)
+	lock_acquire(&fat_fs->write_lock);
+	// lock_release(&fat_fs->read_lock);
 
 	ret = fat_fs->fat[clst];
 
-	lock_acquire(&fat_fs->read_lock);
-	fat_fs->read_count--;
-	if (fat_fs->read_count == 0)
-		lock_release(&fat_fs->write_lock);
-	lock_release(&fat_fs->read_lock);
+	// lock_acquire(&fat_fs->read_lock);
+	// fat_fs->read_count--;
+	// if (fat_fs->read_count == 0)
+	lock_release(&fat_fs->write_lock);
+	// lock_release(&fat_fs->read_lock);
 
 	return ret;
 }
